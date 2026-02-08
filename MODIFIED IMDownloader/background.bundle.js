@@ -5,15 +5,19 @@ const pendingDownloads = {};
 
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
 
-  if (item.byExtensionId !== chrome.runtime.id) {
-    suggest();
-    return;
-  }
+  console.group("📦 onDeterminingFilename triggered");
+  console.log("Download ID:", item.id);
+  console.log("Original URL:", item.url);
+  console.log("Original filename:", item.filename);
+  console.log("byExtensionId:", item.byExtensionId);
+  console.log("Our extension ID:", chrome.runtime.id);
 
+  // Instagram override first
   const customName = pendingDownloads[item.url];
 
   if (customName) {
-    console.log("📝 Overriding filename:", customName);
+    console.log("Instagram pending match found.");
+    console.log("Overriding with:", customName);
 
     suggest({
       filename: customName,
@@ -21,9 +25,55 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
     });
 
     delete pendingDownloads[item.url];
-  } else {
+    console.groupEnd();
+    return;
+  }
+
+  // Domain-based folder logic for ALL downloads
+  try {
+
+    let rawUrl = item.url.startsWith("blob:")
+      ? item.url.replace("blob:", "")
+      : item.url;
+
+    console.log("Processed raw URL:", rawUrl);
+
+    const url = new URL(rawUrl);
+    const hostname = url.hostname.toLowerCase();
+
+    console.log("Parsed hostname:", hostname);
+
+    let domain = hostname
+      .replace(/^www\./, "")
+      .replace(/[^a-zA-Z0-9.-]/g, "");
+
+    console.log("Sanitized domain:", domain);
+
+    let originalFilename;
+
+    if (item.filename) {
+      originalFilename = item.filename.split('/').pop();
+      console.log("Using item.filename:", originalFilename);
+    } else {
+      originalFilename = url.pathname.split('/').pop() || "downloaded_file";
+      console.log("Derived from URL path:", originalFilename);
+    }
+
+    const targetPath = `${domain}/${originalFilename}`;
+
+    console.log("Final target path:", targetPath);
+
+    suggest({
+      filename: targetPath,
+      conflictAction: "overwrite"
+    });
+
+  } catch (error) {
+    console.error("Error during domain folder logic:", error);
     suggest();
   }
+
+  console.groupEnd();
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -45,7 +95,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       console.log("Custom filename:", file.filename);
       console.groupEnd();
 
-      pendingDownloads[file.url] = file.filename;
+      //   pendingDownloads[file.url] = file.filename;
       pendingDownloads[file.url] = "instagram/" + file.filename;
 
 

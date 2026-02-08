@@ -1,0 +1,39 @@
+{
+   "action": {
+      "default_popup": "popup.html"
+   },
+   "author": "Faruk Cepni",
+   "background": {
+      "service_worker": "background.bundle.js",
+      "type": "module"
+   },
+   "content_scripts": [ {
+      "js": [ "content_scripts.bundle.js" ],
+      "matches": [ "https://*.instagram.com/*" ]
+   } ],
+   "description": "Download original (high resolution) image, video, reels, story and highlight for Instagram™ with one click, free and unlimited.",
+   "host_permissions": [
+      "https://*.instagram.com/*",
+      "https://*.fbcdn.net/*"
+   ],
+   "icons": {
+      "128": "assets/img_128.png",
+      "16": "assets/img_16.png",
+      "20": "assets/img_20.png",
+      "24": "assets/img_24.png",
+      "256": "assets/img_256.png",
+      "32": "assets/img_32.png",
+      "48": "assets/img_48.png",
+      "512": "assets/img_512.png",
+      "64": "assets/img_64.png"
+   },
+   "manifest_version": 3,
+   "name": "CUSTOM IMDownloader",
+   "permissions": [
+      "downloads",
+      "storage",
+      "contextMenus"
+   ],
+   "short_name": "CUSTOM IMDownloader",
+   "version": "3.1.9-mod"
+}

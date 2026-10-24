@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "mediadownloader",
+  "version": "0.1.0",
+  "description": "Download original-resolution images and videos with one click. Starts with Instagram.",
+  "permissions": [
+    "downloads",
+    "storage",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://*.instagram.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "mediadownloader settings",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.instagram.com/*"
+      ],
+      "js": [
+        "shared/settings.js",
+        "sites/instagram.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.instagram.com/*"
+      ],
+      "js": [
+        "sites/instagram-page.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    }
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtAKCDzViZoWr0ezXU6WlKo7q4qnN+p/Pjnb50f/uJfnuKblloghWHj24Lw8HBNYxn229lfebAbADhzXpokeI7j6mQLgGSdMqLXopnyfAcOtfAmCAKA6/+SHvoBGTZ8pVPVx+/7Hs2xqkK3Hhkbpx/qn+XwZu2W0nRhW8uYjntKsyOfqC0EMAfLxdBPwnDCBOgHrE9VWFT0Ki7B67xF/cNOJUsfwAG3cwNPAjsY/iDlAMUCOOQaOeU0GfMzicsofOYBfVIxdhdbdiVYiPvtHrAHRoBAL1rG33Kn/XKbKzOu5U0YeXpMB2F0jgT2555FPxaX4RF903sGRHj5sM1RRQ8QIDAQAB"
+}

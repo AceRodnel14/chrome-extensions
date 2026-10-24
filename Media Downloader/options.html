@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mediadownloader settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <header>
+      <img src="icons/icon48.png" alt="" width="32" height="32">
+      <h1>mediadownloader</h1>
+    </header>
+
+    <form id="settings">
+      <section>
+        <h2>Filename pattern</h2>
+        <input id="filenamePattern" type="text" spellcheck="false" autocomplete="off">
+        <p class="preview">Example: <code id="preview"></code></p>
+        <div class="info">
+          <p>Files are named after this pattern. These words are replaced wherever they appear in it:</p>
+          <dl id="variables"></dl>
+          <p>Every file of a carousel or story set gets its position added to the end.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Save location</h2>
+        <input id="saveLocation" type="text" spellcheck="false" autocomplete="off" placeholder="Leave empty to use the Downloads folder itself">
+        <p class="error" id="saveLocationError" hidden></p>
+        <p class="preview">Button downloads: <code id="pathPreview"></code><br>Other downloads: <code id="otherPathPreview"></code></p>
+        <div class="info">
+          <p>The folder that the website folders (<code>instagram.com</code>, <code>github.com</code>, …) are created in. Missing folders are created automatically. Use <code>\</code> or <code>/</code> between folders, e.g. <code>Media\Social</code>.</p>
+          <p>Chrome only lets extensions save inside its Downloads folder, so this is a folder inside it. To save on another drive or folder, change Chrome's own download location under Settings → Downloads.</p>
+        </div>
+        <label class="choice">
+          <input type="checkbox" id="organizeOtherDownloads">
+          Also sort all other downloads into a folder named after the website they came from
+        </label>
+      </section>
+
+      <section>
+        <h2>Downloaded file size</h2>
+        <label class="choice"><input type="radio" name="imageSize" value="original"> Original</label>
+        <label class="choice"><input type="radio" name="imageSize" value="medium"> Medium</label>
+        <label class="choice"><input type="radio" name="imageSize" value="small"> Small</label>
+      </section>
+
+      <section>
+        <h2>Photo and video dates (exiftool)</h2>
+        <label class="choice">
+          <input type="checkbox" id="exiftoolEnabled">
+          Write the post date into downloaded photos and videos with exiftool
+        </label>
+        <input id="exiftoolDir" type="text" spellcheck="false" autocomplete="off" placeholder="Folder that contains exiftool, e.g. C:\Tools\exiftool or /home/me/Image-ExifTool-13.59">
+        <p class="preview"><button type="button" id="exiftoolTest" class="secondary">Test</button> <span id="exiftoolStatus"></span></p>
+        <div class="info">
+          <p>Sets <code>DateTimeOriginal</code>, <code>AllDates</code>, <code>CreationTime</code> and <code>ModifyDate</code> to the time the post was published (the <code>createdDate</code> in the filename, in UTC, without a time zone). Profile pictures and other downloads are left alone.</p>
+          <p>Chrome extensions cannot run programs themselves, so this needs the small helper in the extension's <code>native</code> folder installed once: <code>install.bat</code> on Windows (needs Python 3), <code>./install.sh</code> on Linux. Windows: use <code>exiftool.exe</code> (rename <code>exiftool(-k).exe</code>). Linux: the <code>Image-ExifTool</code> folder works as is (needs Perl).</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Enabled websites</h2>
+        <p class="hint">Download buttons only appear on the websites switched on here.</p>
+        <div id="sites"></div>
+      </section>
+
+      <section>
+        <h2>Diagnose mode</h2>
+        <p class="hint">Turn on only while checking why downloads stopped working. It does nothing extra while off.</p>
+        <label class="choice">
+          <input type="checkbox" id="diagnoseMode">
+          Diagnose mode
+        </label>
+        <div class="info">
+          <p>While on:</p>
+          <ul>
+            <li>Every Instagram call and its result is logged in the page console (F12, filter <code>mediadownloader</code>).</li>
+            <li>Error messages include the technical detail (which query, which id, what Instagram answered).</li>
+            <li>When a query fails, the current query id is looked up in Instagram's own scripts, retried once, and remembered.</li>
+          </ul>
+          <p>Remembered query ids (used even after Diagnose mode is turned off):</p>
+          <ul id="learnedDocIds"><li>None</li></ul>
+          <button type="button" id="forgetDocIds" class="secondary">Forget remembered ids</button>
+        </div>
+      </section>
+
+      <footer>
+        <button type="submit" id="save">Save</button>
+        <span id="status" role="status"></span>
+      </footer>
+    </form>
+  </main>
+
+  <script src="shared/settings.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

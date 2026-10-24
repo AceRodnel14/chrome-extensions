@@ -1,15 +1,19 @@
 {
   "manifest_version": 3,
   "name": "mediadownloader",
-  "version": "0.1.0",
-  "description": "Download original-resolution images and videos with one click. Starts with Instagram.",
+  "version": "0.2.0",
+  "description": "Download original-resolution images and videos with one click from Instagram, X (Twitter), YouTube posts and Reddit.",
   "permissions": [
     "downloads",
     "storage",
     "nativeMessaging"
   ],
   "host_permissions": [
-    "https://*.instagram.com/*"
+    "https://*.instagram.com/*",
+    "https://*.x.com/*",
+    "https://*.twitter.com/*",
+    "https://www.youtube.com/*",
+    "https://www.reddit.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -40,6 +44,7 @@
       ],
       "js": [
         "shared/settings.js",
+        "shared/report.js",
         "sites/instagram.js"
       ],
       "run_at": "document_idle"
@@ -52,6 +57,61 @@
         "sites/instagram-page.js"
       ],
       "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.x.com/*",
+        "https://*.twitter.com/*"
+      ],
+      "js": [
+        "shared/settings.js",
+        "shared/report.js",
+        "sites/x.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.x.com/*",
+        "https://*.twitter.com/*"
+      ],
+      "js": [
+        "sites/x-page.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "shared/settings.js",
+        "shared/report.js",
+        "sites/youtube.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "sites/youtube-page.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.reddit.com/*"
+      ],
+      "js": [
+        "shared/settings.js",
+        "shared/report.js",
+        "sites/reddit.js"
+      ],
       "run_at": "document_idle"
     }
   ],

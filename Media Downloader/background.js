@@ -33,49 +33,62 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         .catch((err) => ({ filename: path, ok: false, error: err.message }));
     })
   ).then((results) => {
-    const exiftool = settings.exiftoolEnabled ? queueExiftool(results, sender.tab?.id) : 0;
+    const exiftool = settings.exiftoolEnabled && settings.exiftoolDir ? results.filter((r) => r.ok && r.takenAt).length : 0;
+    trackBatch(results, sender.tab?.id, exiftool > 0);
     sendResponse({ results: results.map(({ filename, ok, error }) => ({ filename, ok, error })), exiftool });
   });
 
   return true; // respond asynchronously
 });
 
-// ---------------------------------------------------------------- exiftool helper (native messaging)
+// ---------------------------------------------------------------- batches: one per click
 //
-// After all files of one click have finished downloading, the batch goes to native/mediadownloader_exiftool.py,
-// which writes each file's post date with a single exiftool run. Batches wait in chrome.storage.session because
-// Chrome may stop this worker while a large video is still downloading.
+// chrome.downloads.download() only says Chrome *accepted* a download; the file can still fail afterwards (a 404, a
+// network error). So every click is followed until each of its downloads is complete or interrupted, then the tab
+// gets one report: how many files were asked for, how many were saved, which failed and why, and (with exiftool on)
+// how many got their date. Batches wait in chrome.storage.session because Chrome may stop this worker while a large
+// video is still downloading.
+//
+// The exiftool part: the batch's saved files that have a post date go to native/mediadownloader_exiftool.py, which
+// writes them all with a single exiftool run.
 
 const EXIFTOOL_HOST = "com.mediadownloader.exiftool";
 let batchesLock = Promise.resolve();
 
-// Serialized read-modify-write of the pending batches: { [batchId]: { tabId, pending: { [downloadId]: takenAt }, done: [{ path, takenAt }] } }
+// Serialized read-modify-write of the pending batches:
+// { [batchId]: { tabId, total, dates, pending: { [downloadId]: { filename, takenAt } }, done: [{ path, filename, takenAt }], failed: [{ filename, error }] } }
 function withBatches(change) {
   const run = batchesLock.then(async () => {
-    const { exifBatches = {} } = await chrome.storage.session.get("exifBatches");
-    const result = await change(exifBatches);
-    await chrome.storage.session.set({ exifBatches });
+    const { batches = {} } = await chrome.storage.session.get("batches");
+    const result = await change(batches);
+    await chrome.storage.session.set({ batches });
     return result;
   });
   batchesLock = run.catch(() => {});
   return run;
 }
 
-// Returns how many files will get their date set (0 = none queued).
-function queueExiftool(results, tabId) {
-  const files = results.filter((r) => r.ok && r.takenAt);
-  if (!files.length || !settings.exiftoolDir) return 0;
+function trackBatch(results, tabId, dates) {
+  const started = results.filter((r) => r.ok);
+  const batch = {
+    tabId,
+    total: results.length,
+    dates, // whether exiftool should date the saved files
+    pending: Object.fromEntries(started.map((r) => [r.id, { filename: r.filename, takenAt: r.takenAt || null }])),
+    done: [],
+    failed: results.filter((r) => !r.ok).map((r) => ({ filename: r.filename, error: r.error || "did not start" })),
+  };
+  if (!started.length) return finishBatch(batch);
   const batchId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   withBatches((batches) => {
-    batches[batchId] = { tabId, pending: Object.fromEntries(files.map((f) => [f.id, f.takenAt])), done: [] };
+    batches[batchId] = batch;
   }).then(async () => {
     // Small files can finish before the batch was stored; settle those now.
-    for (const { id } of files) {
+    for (const { id } of started) {
       const [item] = await chrome.downloads.search({ id });
       if (item && item.state !== "in_progress") settleDownload(id, item.state);
     }
   });
-  return files.length;
 }
 
 function settleDownload(downloadId, state) {
@@ -83,15 +96,15 @@ function settleDownload(downloadId, state) {
     const batchId = Object.keys(batches).find((b) => downloadId in batches[b].pending);
     if (!batchId) return null;
     const batch = batches[batchId];
-    if (state === "complete") {
-      const [item] = await chrome.downloads.search({ id: downloadId });
-      if (item?.filename) batch.done.push({ path: item.filename, takenAt: batch.pending[downloadId] });
-    }
+    const { filename, takenAt } = batch.pending[downloadId];
+    const [item] = await chrome.downloads.search({ id: downloadId });
+    if (state === "complete" && item?.filename) batch.done.push({ path: item.filename, filename, takenAt });
+    else batch.failed.push({ filename, error: item?.error ? downloadError(item.error) : "the download did not finish" });
     delete batch.pending[downloadId];
     if (Object.keys(batch.pending).length) return null;
     delete batches[batchId];
     return batch;
-  }).then((finished) => finished && runExiftool(finished));
+  }).then((finished) => finished && finishBatch(finished));
 }
 
 chrome.downloads.onChanged.addListener((delta) => {
@@ -99,24 +112,49 @@ chrome.downloads.onChanged.addListener((delta) => {
   if (state === "complete" || state === "interrupted") settleDownload(delta.id, state);
 });
 
-async function runExiftool(batch) {
-  if (!batch.done.length) return;
-  await settingsReady;
-  let reply;
-  try {
-    reply = await chrome.runtime.sendNativeMessage(EXIFTOOL_HOST, { action: "setDates", exiftoolDir: settings.exiftoolDir, files: batch.done });
-  } catch (err) {
-    reply = { ok: false, error: helperError(err) };
-  }
-  reply ||= { ok: false, error: "the exiftool helper exited without an answer" };
-  const failed = reply.ok ? reply.results.filter((r) => !r.ok) : [];
-  const report = {
-    type: "exiftoolResult",
-    ok: reply.ok && !failed.length,
-    updated: reply.ok ? reply.results.length - failed.length : 0,
-    total: batch.done.length,
-    error: reply.ok ? failed[0]?.error || null : reply.error,
+// Chrome's interrupt reasons, in words.
+function downloadError(reason) {
+  const words = {
+    SERVER_BAD_CONTENT: "the site has no such file (404)",
+    SERVER_FORBIDDEN: "the site refused the download (403)",
+    SERVER_UNAUTHORIZED: "the site wants a login",
+    NETWORK_FAILED: "network error",
+    NETWORK_TIMEOUT: "network timeout",
+    NETWORK_DISCONNECTED: "network disconnected",
+    FILE_NO_SPACE: "the disk is full",
+    FILE_ACCESS_DENIED: "no permission to write the file",
+    USER_CANCELED: "cancelled",
   };
+  return words[reason] || reason;
+}
+
+// Date the saved files (if exiftool is on), then send the tab one report.
+async function finishBatch(batch) {
+  let dates = null;
+  const datable = batch.done.filter((f) => f.takenAt);
+  if (batch.dates && datable.length) {
+    await settingsReady;
+    let reply;
+    try {
+      reply = await chrome.runtime.sendNativeMessage(EXIFTOOL_HOST, {
+        action: "setDates",
+        exiftoolDir: settings.exiftoolDir,
+        files: datable.map(({ path, takenAt }) => ({ path, takenAt })),
+      });
+    } catch (err) {
+      reply = { ok: false, error: helperError(err) };
+    }
+    reply ||= { ok: false, error: "the exiftool helper exited without an answer" };
+    const results = reply.ok ? reply.results || [] : [];
+    const notSet = reply.ok
+      ? datable.filter((f) => !results.find((r) => r.path === f.path)?.ok).map((f) => ({
+          filename: f.filename,
+          error: results.find((r) => r.path === f.path)?.error || "exiftool gave no result for this file",
+        }))
+      : datable.map((f) => ({ filename: f.filename, error: reply.error }));
+    dates = { total: datable.length, set: datable.length - notSet.length, notSet };
+  }
+  const report = { type: "batchResult", total: batch.total, saved: batch.done.length, savedFiles: batch.done.map((f) => f.filename), failed: batch.failed, dates };
   if (batch.tabId !== undefined) chrome.tabs.sendMessage(batch.tabId, report).catch(() => {});
 }
 

@@ -2,7 +2,12 @@
 // Loaded as a plain script, so it exposes a single global: MDSettings.
 (() => {
   // Every site mediadownloader knows how to handle. A site's content script only runs when it is enabled here.
-  const SITES = [{ id: "instagram", name: "Instagram", hosts: ["instagram.com"] }];
+  const SITES = [
+    { id: "instagram", name: "Instagram", hosts: ["instagram.com"] },
+    { id: "x", name: "X (Twitter)", hosts: ["x.com", "twitter.com"] },
+    { id: "youtube", name: "YouTube (posts)", hosts: ["youtube.com"] },
+    { id: "reddit", name: "Reddit", hosts: ["reddit.com"] },
+  ];
 
   const DEFAULTS = {
     filenamePattern: "username_--website--_createdDate",
@@ -16,9 +21,9 @@
   };
 
   const VARIABLES = {
-    username: "Username of the account that posted it",
-    createdDate: "Date it was posted (profile pictures use \"profile\")",
-    website: "Site it was downloaded from, without the domain ending (instagram.com → instagram)",
+    username: "Username of the account that posted it (Reddit: the subreddit)",
+    createdDate: "Date it was posted (profile pictures use \"profile\", banners \"banner\")",
+    website: "Site it was downloaded from, without the domain ending (instagram.com → instagram, x.com → x, youtube.com → youtube, reddit.com → reddit)",
   };
 
   // Second-level suffixes where the site name is one label further left (bbc.co.uk → bbc).

@@ -363,12 +363,10 @@
       const files = await filesFor(target);
       diag("files to save", files);
       const { results, exiftool } = await chrome.runtime.sendMessage({ type: "download", site: SITE_ID, files });
-      diag("chrome.downloads results", results, exiftool ? `${exiftool} files queued for exiftool` : "exiftool not used");
-      const failed = results.filter((r) => !r.ok);
-      if (failed.length) throw new Error(`Saving failed for ${failed.length} of ${results.length} files: ${failed[0].error || "unknown error"}`);
-      const saved = results.length > 1 ? `Saved ${results.length} files.` : `Saved ${results[0].filename}`;
-      toast(exiftool ? `${saved} Setting dates…` : saved, exiftool ? "progress" : "success");
-      flash(btn, "#1e7a34");
+      diag("chrome.downloads started", results, exiftool ? `${exiftool} files will get their date` : "exiftool not used");
+      // The verdict comes later, once every file has finished (see the "batchResult" listener below).
+      lastButton = btn;
+      toast(MDReport.waiting(results.length, exiftool > 0));
     } catch (err) {
       console.error("[mediadownloader]", err);
       toast(err.message || "The download failed. Please try again.", "error");
@@ -390,7 +388,7 @@
 
   let toastEl = null;
   let toastTimer = 0;
-  const TOAST_COLORS = { progress: "#2f9e44", success: "#1e7a34", error: "#ed4956" };
+  const TOAST_COLORS = { progress: "#2f9e44", success: "#1e7a34", warning: "#b26a00", error: "#ed4956" };
 
   function toast(text, kind = "progress") {
     if (!toastEl) {
@@ -606,12 +604,15 @@
     if (!queued) queued = setTimeout(() => ((queued = 0), injectAll()), 100);
   });
 
-  // The background worker reports back once exiftool has run on a finished batch.
+  // The background worker reports once every file of a click has finished: how many were saved, which failed,
+  // and how many got their date. The toast says "Downloading…" until then.
+  let lastButton = null;
   chrome.runtime.onMessage.addListener((msg) => {
-    if (msg?.type !== "exiftoolResult") return;
-    diag("exiftool result", msg);
-    if (msg.ok) toast(`Dates set on ${msg.updated} file${msg.updated === 1 ? "" : "s"}.`, "success");
-    else toast(`Saved, but setting the date failed${msg.updated ? ` for ${msg.total - msg.updated} of ${msg.total} files` : ""}: ${msg.error}`, "error");
+    if (msg?.type !== "batchResult") return;
+    diag("batch result", msg);
+    const { kind, text } = MDReport.summary(msg);
+    toast(text, kind);
+    flash(lastButton, { success: "#1e7a34", warning: "#b26a00", error: "#ed4956" }[kind]);
   });
 
   chrome.storage.onChanged.addListener(async (changes, area) => {

@@ -95,6 +95,7 @@ def set_dates(command, files):
     for index, item in enumerate(files):
         ts = exif_timestamp(item["takenAt"])
         lines += [
+            "-m",  # write despite "[minor]" problems, e.g. the odd EXIF in some PNGs from YouTube posts
             "-overwrite_original",
             f"-DateTimeOriginal={ts}",
             f"-AllDates={ts}",

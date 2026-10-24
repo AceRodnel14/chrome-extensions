@@ -21,7 +21,7 @@
         <div class="info">
           <p>Files are named after this pattern. These words are replaced wherever they appear in it:</p>
           <dl id="variables"></dl>
-          <p>Every file of a carousel or story set gets its position added to the end.</p>
+          <p>Every file of a carousel, story set, gallery or multi-photo post gets its position added to the end.</p>
         </div>
       </section>
 
@@ -31,7 +31,7 @@
         <p class="error" id="saveLocationError" hidden></p>
         <p class="preview">Button downloads: <code id="pathPreview"></code><br>Other downloads: <code id="otherPathPreview"></code></p>
         <div class="info">
-          <p>The folder that the website folders (<code>instagram.com</code>, <code>github.com</code>, …) are created in. Missing folders are created automatically. Use <code>\</code> or <code>/</code> between folders, e.g. <code>Media\Social</code>.</p>
+          <p>The folder that the website folders (<code>instagram.com</code>, <code>x.com</code>, <code>youtube.com</code>, <code>reddit.com</code>, <code>github.com</code>, …) are created in. Missing folders are created automatically. Use <code>\</code> or <code>/</code> between folders, e.g. <code>Media\Social</code>.</p>
           <p>Chrome only lets extensions save inside its Downloads folder, so this is a folder inside it. To save on another drive or folder, change Chrome's own download location under Settings → Downloads.</p>
         </div>
         <label class="choice">
@@ -45,6 +45,7 @@
         <label class="choice"><input type="radio" name="imageSize" value="original"> Original</label>
         <label class="choice"><input type="radio" name="imageSize" value="medium"> Medium</label>
         <label class="choice"><input type="radio" name="imageSize" value="small"> Small</label>
+        <p class="hint">On Reddit this only changes videos: Reddit images and GIFs are always saved at their original size, because Reddit's smaller versions are cropped.</p>
       </section>
 
       <section>
@@ -77,9 +78,9 @@
         <div class="info">
           <p>While on:</p>
           <ul>
-            <li>Every Instagram call and its result is logged in the page console (F12, filter <code>mediadownloader</code>).</li>
-            <li>Error messages include the technical detail (which query, which id, what Instagram answered).</li>
-            <li>When a query fails, the current query id is looked up in Instagram's own scripts, retried once, and remembered.</li>
+            <li>Every Instagram, X, YouTube and Reddit call and its result is logged in the page console (F12, filter <code>mediadownloader</code>).</li>
+            <li>Error messages include the technical detail (which query, which id, what the site answered).</li>
+            <li>When a query fails, the current query id is looked up in the site's own scripts, retried once, and remembered.</li>
           </ul>
           <p>Remembered query ids (used even after Diagnose mode is turned off):</p>
           <ul id="learnedDocIds"><li>None</li></ul>

@@ -92,13 +92,14 @@ crossposts) and r/gifs/new (uploaded GIFs).
 
 | # | Where | Do | Expect |
 |---|---|---|---|
-| R1 | Gallery post | Click the circle-arrow at the right end of the action row | One file per item, `_0` …, full size (e.g. 4096×3072), in gallery order; the post does **not** open |
+| R1 | Gallery post **in a feed** (home or a subreddit, not the post page) | Click the circle-arrow at the right end of the action row | One file per item, `_0` …, full size (e.g. 4096×3072), in gallery order; the post does **not** open |
 | R2 | Image post (`i.redd.it`) | Click the button | One file, the uploaded size and type |
 | R3 | Video post (`v.redd.it`) | Click the button | One `.mp4` **with sound**, the highest resolution offered |
 | R4 | GIF post on r/gifs (`i.redd.it/….gif`) | Click the button | One animated `.gif` |
 | R5 | GIF converted to video (`gif @ v.redd.it`) | Click the button | One silent `.mp4` (its date may fail in exiftool: "sidx box", see context.md) |
 | R6 | Crosspost of a video or a gallery | Click the button | The original post's files, named after the subreddit it was **shared to** (where you clicked), with the original post's date |
-| R7 | Crosspost of / link to another site (redgifs, YouTube, imgur …) | Look at the action row | No download button |
+| R7 | Link to another site (YouTube, imgur …) | Look at the action row | No download button |
+| R7b | RedGifs post in a feed (`link @ redgifs.com`) | Click the button | One `.mp4` (full size, with sound if the clip has it), named after the subreddit with the Reddit post's date; the post does **not** open |
 | R8 | A post's own page (`/r/<sub>/comments/<id>/…`) | Click the button | Same as R1–R6 |
 | R9 | Ad in the feed | Look at it | No button |
 | R10 | File size Small, then a video and a gallery | Click the buttons | Video at the lowest resolution; gallery images still full size (Reddit images are always original) |

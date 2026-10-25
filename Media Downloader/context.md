@@ -437,7 +437,8 @@ not supported): `sites/reddit.js`. It needs no page-world helper: everything it 
 Reddit's own JSON on the same origin.
 
 **Only media Reddit hosts itself** is downloaded: `i.redd.it` (images, GIFs, gallery items) and `v.redd.it`
-(videos, converted GIFs). Link posts to other sites (e.g. `crosspost @ redgifs.com`, YouTube links) get no button.
+(videos, converted GIFs), plus **RedGifs clips** linked from posts (see "RedGifs" below). Link posts to any other site
+(YouTube, imgur, …) get no button.
 
 ### Which posts get a button
 
@@ -454,13 +455,18 @@ elements and get nothing.
 | `gif @ i.redd.it` | An uploaded `.gif` |
 | `gif @ v.redd.it` | A GIF Reddit converted to a silent video |
 | `crosspost @ v.redd.it` / `@ reddit.com` | Crosspost of a Reddit-hosted video / gallery |
-| `crosspost @ redgifs.com`, `link @ …` | Media on another site: **no button** |
+| `link @ redgifs.com` / `crosspost @ redgifs.com` | A RedGifs clip: button, see "RedGifs" below |
+| `link @ …` other sites | Media on another site: **no button** |
 
 ### Placement
 
 The action row (votes, comments, repost, share) is in the post's open shadow root and filled through named slots.
 The button is appended to the `shreddit-post` with `slot="action-row-whitespace"`, the free slot at the end of the
 row (the `share-button` slot must not be used: its fallback content *is* the Share button).
+
+In feeds, a transparent link to the post (`<a slot="full-post-link" class="absolute inset-0">`) covers the whole
+card, so the button needs `position: relative; z-index: 1` to sit above it; otherwise a real click opens the post
+(a scripted `.click()` on the button still works, so test with the mouse).
 
 ### Where the files come from
 
@@ -483,6 +489,25 @@ Original = highest bitrate (e.g. 720×1280 or 1082p), Small = lowest, Medium = t
 
 `username` = the **subreddit** of the clicked post (`subreddit`, e.g. `Gaeul_IVE`), not the poster; for a crosspost
 that is the subreddit it was shared to, not the original's; `createdDate` = `created_utc` (whole seconds, so `.000Z`); `website` = `reddit`.
+
+### RedGifs
+
+A post's `url_overridden_by_dest` (`https://www.redgifs.com/watch/<id>`; also `/ifr/<id>` and `i.redgifs.com/i/<id>`)
+names the clip. RedGifs' API answers only redgifs.com pages (CORS `access-control-allow-origin: https://www.redgifs.com`),
+so `sites/reddit.js` sends `{ type: "redgifs", id }` to `background.js`, which has host permission for
+`api.redgifs.com`:
+
+1. `GET https://api.redgifs.com/v2/auth/temporary` → `{ token }` (no login; valid about a day; kept in memory and
+   fetched again after a 401).
+2. `GET https://api.redgifs.com/v2/gifs/<id>` with `Authorization: Bearer <token>` → `gif.urls`: `hd` (full size, with
+   sound when `hasAudio`), `sd` (`-mobile.mp4`), `silent`, `thumbnail`, `poster`. 404/410 = removed clip.
+
+RedGifs keeps **no GIF files**, only mp4, so the file is the `.mp4`. Original = `hd`, Medium and Small = `sd`. The
+files on `media.redgifs.com` download without cookies or a referer. Name and date come from the **Reddit post**
+(subreddit, `created_utc`), like every other Reddit download, not from RedGifs' `createDate`/`userName`.
+
+If RedGifs changes: the error toast says "RedGifs lookup failed: …"; check the two calls above with curl (they work
+from anywhere) and update `redgifsFetch` (background.js) or `redgifsFile` (sites/reddit.js).
 
 ### exiftool on Reddit files
 

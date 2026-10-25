@@ -13,7 +13,8 @@ Supported websites:
   multi-image and poll images) at their full uploaded size, with the exact publish time, plus the channel avatar and
   banner.
 - **Reddit**: images, galleries, uploaded GIFs and videos (with sound) hosted on Reddit itself (`i.redd.it`,
-  `v.redd.it`), including crossposts of them, named after the subreddit. Posts that link to other sites are left alone.
+  `v.redd.it`), including crossposts of them, and RedGifs clips linked from posts (saved as the `.mp4` RedGifs
+  hosts; it keeps no GIF files), named after the subreddit. Posts that link to other sites are left alone.
 
 ## Origin
 
@@ -219,7 +220,7 @@ check (`tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, 
 
 | Path | What it does |
 |---|---|
-| `manifest.json` | Permissions (`downloads`, `storage`, `nativeMessaging`, Instagram, X, YouTube and Reddit host access) and content scripts |
+| `manifest.json` | Permissions (`downloads`, `storage`, `nativeMessaging`, Instagram, X, YouTube and Reddit host access, and `api.redgifs.com` for RedGifs clips on Reddit) and content scripts |
 | `background.js` | Saves files with `chrome.downloads` and decides the folder of every download |
 | `shared/settings.js` | Settings defaults, filename/folder building; shared by all parts |
 | `shared/report.js` | The final download message (files saved, failed, dated), shared by every site |
@@ -230,7 +231,7 @@ check (`tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, 
 | `sites/x-page.js` | Helper running in X's page context that reads posts from X's React props and Redux store |
 | `sites/youtube.js` | YouTube post and channel buttons, file selection, exact publish dates |
 | `sites/youtube-page.js` | Helper running in YouTube's page context that reads a post's images from its element data |
-| `sites/reddit.js` | Reddit buttons and file selection (Reddit's JSON, and the player's packaged mp4s for videos with sound) |
+| `sites/reddit.js` | Reddit buttons and file selection (Reddit's JSON, the player's packaged mp4s for videos with sound, and RedGifs clips through `background.js`) |
 | `native/` | exiftool helper (`mediadownloader_exiftool.py`) and its installers; runs outside Chrome |
 | `tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, `tools/diagnose-reddit.js` | Health checks to paste into the console on Instagram / X / YouTube / Reddit when downloads stop working (not part of the extension's runtime) |
 

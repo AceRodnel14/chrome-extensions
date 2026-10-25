@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "mediadownloader",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Download original-resolution images and videos with one click from Instagram, X (Twitter), YouTube posts and Reddit.",
   "permissions": [
     "downloads",
@@ -13,7 +13,8 @@
     "https://*.x.com/*",
     "https://*.twitter.com/*",
     "https://www.youtube.com/*",
-    "https://www.reddit.com/*"
+    "https://www.reddit.com/*",
+    "https://api.redgifs.com/*"
   ],
   "background": {
     "service_worker": "background.js"

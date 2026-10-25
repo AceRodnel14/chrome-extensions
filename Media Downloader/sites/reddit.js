@@ -1,6 +1,7 @@
 // mediadownloader: Reddit support.
 // Adds a download button to posts whose media Reddit hosts itself (i.redd.it images and GIFs, galleries, v.redd.it
-// videos, and crossposts of those), in feeds and on post pages. Link posts to other sites get no button.
+// videos, and crossposts of those) and to posts linking a RedGifs clip, in feeds and on post pages. Link posts to
+// other sites get no button.
 // File lists come from Reddit's own JSON (/by_id/<id>.json); videos use the "packaged" mp4 the page's player
 // carries, because Reddit's plain video files have no sound.
 (() => {
@@ -10,6 +11,9 @@
   // Domains a post's media must come from (crossposts report their original's domain).
   const HOSTED = new Set(["i.redd.it", "v.redd.it", "reddit.com", "www.reddit.com"]);
   const MEDIA_TYPES = new Set(["image", "gallery", "video", "gif", "crosspost"]);
+  // Links to RedGifs clips are the one other site supported ("link @ redgifs.com", "crosspost @ redgifs.com").
+  const isRedgifs = (domain) => /(^|\.)redgifs\.com$/.test(domain);
+  const redgifsId = (url) => url?.match(/redgifs\.com\/(?:watch|ifr|i)\/([a-z0-9]+)/i)?.[1].toLowerCase() || null;
 
   let settings = MDSettings.DEFAULTS;
   const enabled = () => settings.sites[SITE_ID] !== false;
@@ -76,8 +80,22 @@
     return list.at(-1);
   }
 
+  // A RedGifs clip: always an mp4 (RedGifs keeps no GIF files). Original = "hd", Medium and Small = "sd".
+  async function redgifsFile(id) {
+    diag(`RedGifs lookup: ${id} (through the background worker)`);
+    const reply = await chrome.runtime.sendMessage({ type: "redgifs", id });
+    if (!reply?.ok) throw callError("RedGifs lookup", reply?.error || "no answer from the extension.", `clip ${id}`);
+    diag("RedGifs lookup: OK", reply.gif);
+    const { hd, sd } = reply.gif.urls;
+    const url = settings.imageSize === "original" ? hd || sd : sd || hd;
+    if (!url) throw callError("RedGifs lookup", "RedGifs returned no video file for this clip.", `clip ${id}: urls ${Object.keys(reply.gif.urls)}`);
+    return { url, ext: "mp4" };
+  }
+
   // Every file of a post, in order: [{ url, ext }]. `skipped` counts gallery items that could not be saved.
   async function mediaOf(post, postEl) {
+    const clip = redgifsId(post.url_overridden_by_dest || post.url);
+    if (clip) return { files: [await redgifsFile(clip)], skipped: 0 };
     if (post.is_gallery) {
       const files = [];
       let skipped = 0;
@@ -237,6 +255,10 @@
       marginLeft: "8px",
       padding: "0",
       flexShrink: "0",
+      // Feed posts are covered by a transparent link to the post (slot "full-post-link", absolute inset-0); without
+      // this the real click lands on that link and opens the post instead.
+      position: "relative",
+      zIndex: "1",
       border: "none",
       borderRadius: "999px",
       background: "var(--color-button-secondary-background, #e5ebee)",
@@ -267,7 +289,8 @@
       if (post.querySelector(`:scope > .${BTN}`)) continue;
       const type = post.getAttribute("post-type");
       const domain = (post.getAttribute("domain") || "").toLowerCase();
-      if (!MEDIA_TYPES.has(type) || !HOSTED.has(domain) || !/^t3_/.test(post.id)) continue;
+      const supported = isRedgifs(domain) ? type === "link" || type === "crosspost" : MEDIA_TYPES.has(type) && HOSTED.has(domain);
+      if (!supported || !/^t3_/.test(post.id)) continue;
       if (post.querySelector(`:scope > [slot="${SLOT}"]`)) continue; // slot already taken by Reddit
       const btn = makeButton(() => ({ id: post.id, el: post }));
       btn.slot = SLOT;

@@ -175,6 +175,44 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
+// ---------------------------------------------------------------- RedGifs lookups (for Reddit posts linking there)
+//
+// RedGifs' API only allows pages on redgifs.com (CORS), so sites/reddit.js asks here; host permission for
+// api.redgifs.com lets this worker read it. Every call needs a temporary token, which works for about a day.
+
+const REDGIFS_API = "https://api.redgifs.com/v2";
+let redgifsToken = null;
+
+async function redgifsFetch(path, retry = true) {
+  if (!redgifsToken) {
+    const r = await fetch(`${REDGIFS_API}/auth/temporary`);
+    if (!r.ok) throw new Error(`RedGifs refused a session (${r.status}).`);
+    redgifsToken = (await r.json()).token;
+  }
+  const r = await fetch(`${REDGIFS_API}${path}`, { headers: { Authorization: `Bearer ${redgifsToken}` } });
+  if (r.status === 401 && retry) {
+    redgifsToken = null; // expired
+    return redgifsFetch(path, false);
+  }
+  return r;
+}
+
+// Reply: { ok: true, gif: { urls: { hd, sd, … }, createDate, userName, hasAudio } } or { ok: false, error }.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type !== "redgifs") return;
+  redgifsFetch(`/gifs/${encodeURIComponent(msg.id)}`)
+    .then(async (r) => {
+      if (r.status === 404 || r.status === 410) return { ok: false, error: "RedGifs has no such clip (it was removed)." };
+      if (r.status === 429) return { ok: false, error: "RedGifs is rate limiting requests. Wait a minute and try again." };
+      if (!r.ok) return { ok: false, error: `RedGifs returned an error (${r.status}).` };
+      const { gif } = await r.json();
+      return gif?.urls ? { ok: true, gif } : { ok: false, error: "RedGifs returned no files for this clip." };
+    })
+    .catch((err) => ({ ok: false, error: `RedGifs could not be reached: ${err.message}` }))
+    .then(sendResponse);
+  return true;
+});
+
 function takeOwnPath(url) {
   const queue = ownDownloads.get(url);
   if (!queue?.length) return null;

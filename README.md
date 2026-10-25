@@ -7,7 +7,7 @@ Microsoft Edge and Chromium, on Windows and Linux.
 
 | Extension | What it does | Details |
 |---|---|---|
-| [Media Downloader](Media%20Downloader/) | Adds download buttons to Instagram (posts, carousels, reels, stories, highlights, profile pictures), X/Twitter (photos, videos and GIFs in posts, profile pictures, banners) YouTube posts (images on a channel's Posts tab and post pages, channel avatar and banner; not videos) and Reddit (images, galleries, GIFs and videos hosted on Reddit) and saves the original-resolution files. Also sorts every other download into a folder named after its website, and can write the post date into the files with exiftool. | [README](Media%20Downloader/README.md) |
+| [Media Downloader](Media%20Downloader/) | Adds download buttons to Instagram (posts, carousels, reels, stories, highlights, profile pictures), X/Twitter (photos, videos and GIFs in posts, profile pictures, banners) YouTube posts (images on a channel's Posts tab and post pages, channel avatar and banner; not videos) and Reddit (images, galleries, GIFs and videos hosted on Reddit, and RedGifs clips linked from posts) and saves the original-resolution files. Also sorts every other download into a folder named after its website, and can write the post date into the files with exiftool. | [README](Media%20Downloader/README.md) |
 | [Download Organizer](Download%20Organizer/) | Runs in the background and sorts downloaded files into folders based on their source websites. | [README](Download%20Organizer/README.md) |
 
 **Use one or the other, not both.** Media Downloader already includes Download Organizer's folder sorting. Both

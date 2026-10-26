@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Passman test login</title>
+  <style>body{font:15px system-ui;max-width:420px;margin:40px auto}label{display:block;margin:10px 0}input{width:100%;padding:6px}pre{background:#eee;padding:8px;white-space:pre-wrap}</style>
+</head>
+<body>
+  <!-- Serve with: python3 -m http.server 18090 --bind 127.0.0.1   (from this tools/ folder)
+       Then open http://localhost:18090/test-login.html (needs a passman entry with url http://localhost:18090) -->
+  <h2>1. Plain form</h2>
+  <form id="plain" onsubmit="return false">
+    <label>Username <input name="user" type="text" autocomplete="username"></label>
+    <label>Password <input name="pass" type="password" autocomplete="current-password"></label>
+    <button>Sign in</button>
+  </form>
+
+  <h2>2. Late form (inputs added after 1 second, React-like)</h2>
+  <div id="late"><em>loading...</em></div>
+
+  <h2>Events seen</h2>
+  <pre id="log"></pre>
+  <script>
+    const log = (m) => { document.getElementById('log').textContent += m + '\n'; };
+    // The "framework" keeps its own state and only trusts input events, like React.
+    const state = {};
+    document.addEventListener('input', (e) => {
+      if (e.target.dataset.state) { state[e.target.dataset.state] = e.target.value.length; log('input on ' + (e.target.name || e.target.dataset.state) + ' (' + e.target.value.length + ' chars) inputType=' + e.inputType); }
+    }, true);
+    document.addEventListener('change', (e) => log('change on ' + e.target.name), true);
+    setTimeout(() => {
+      document.getElementById('late').innerHTML =
+        '<div><label>Email <input name="late-user" data-state="u" type="email"></label>' +
+        '<label>Password <input name="late-pass" data-state="p" type="password"></label></div>';
+    }, 1000);
+    for (const el of document.querySelectorAll('#plain input')) el.dataset.state = el.name;
+  </script>
+</body>
+</html>

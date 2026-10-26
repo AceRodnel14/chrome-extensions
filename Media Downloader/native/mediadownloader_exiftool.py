@@ -18,6 +18,7 @@ and format as the original Python script: no time zone, the UTC clock time that 
 Works on Windows (started through mediadownloader_exiftool.bat) and Linux/macOS (started directly).
 Standard library only.
 """
+
 import json
 import os
 import shutil
@@ -54,7 +55,10 @@ def find_exiftool(exiftool_dir):
     if os.path.isfile(path):  # the exiftool file itself was given instead of its folder
         folder, names = os.path.dirname(path), [os.path.basename(path)]
     elif os.path.isdir(path):
-        folder, names = path, (["exiftool.exe", "exiftool"] if WINDOWS else ["exiftool"])
+        folder, names = (
+            path,
+            (["exiftool.exe", "exiftool"] if WINDOWS else ["exiftool"]),
+        )
     else:
         raise RuntimeError(f"The exiftool folder does not exist: {path}")
 
@@ -67,26 +71,42 @@ def find_exiftool(exiftool_dir):
         # The Perl distribution's "exiftool" is a Perl script, often without the executable bit: run it with perl.
         perl = shutil.which("perl")
         if not perl:
-            raise RuntimeError(f"Found {candidate}, but it needs Perl and perl is not installed "
-                               "(Debian/Ubuntu: sudo apt install perl-base; on Windows use exiftool.exe instead).")
+            raise RuntimeError(
+                f"Found {candidate}, but it needs Perl and perl is not installed "
+                "(Debian/Ubuntu: sudo apt install perl-base; on Windows use exiftool.exe instead)."
+            )
         return [perl, candidate]
 
     if os.path.isfile(os.path.join(folder, "exiftool(-k).exe")):
-        raise RuntimeError(f'Found "exiftool(-k).exe" in {folder}. Rename it to "exiftool.exe" '
-                           "(the -k version waits for a key press and would never finish).")
-    raise RuntimeError(f"No exiftool found in {folder} (looked for {', '.join(names)}).")
+        raise RuntimeError(
+            f'Found "exiftool(-k).exe" in {folder}. Rename it to "exiftool.exe" '
+            "(the -k version waits for a key press and would never finish)."
+        )
+    raise RuntimeError(
+        f"No exiftool found in {folder} (looked for {', '.join(names)})."
+    )
 
 
 def run(command, **kwargs):
     # CREATE_NO_WINDOW: no console window flashes up on Windows.
     flags = subprocess.CREATE_NO_WINDOW if WINDOWS else 0
-    return subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                          creationflags=flags, **kwargs)
+    return subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        creationflags=flags,
+        **kwargs,
+    )
 
 
 def exif_timestamp(taken_at):
     # Same format as the original script; the UTC clock time, matching createdDate in the filename.
-    return datetime.fromtimestamp(int(taken_at), tz=timezone.utc).strftime("%Y:%m:%d %H:%M:%S")
+    return datetime.fromtimestamp(int(taken_at), tz=timezone.utc).strftime(
+        "%Y:%m:%d %H:%M:%S"
+    )
 
 
 def set_dates(command, files):
@@ -101,14 +121,18 @@ def set_dates(command, files):
             f"-AllDates={ts}",
             f"-CreationTime={ts}",
             f"-ModifyDate={ts}",
-            "-echo3", f"{MARKER} {index}",  # printed to stdout after this file
-            "-echo4", f"{MARKER} {index}",  # printed to stderr after this file
+            "-echo3",
+            f"{MARKER} {index}",  # printed to stdout after this file
+            "-echo4",
+            f"{MARKER} {index}",  # printed to stderr after this file
             item["path"],
         ]
         if index < len(files) - 1:
             lines.append("-execute")
 
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".args", delete=False) as argfile:
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", suffix=".args", delete=False
+    ) as argfile:
         argfile.write("\n".join(lines) + "\n")
     try:
         result = run(command + ["-charset", "filename=utf8", "-@", argfile.name])
@@ -131,15 +155,20 @@ def set_dates(command, files):
         out = out_blocks[index] if index < len(out_blocks) else []
         err = err_blocks[index] if index < len(err_blocks) else []
         errors = [line for line in err if line.startswith("Error")]
-        updated = any("files updated" in line and not line.startswith("0") for line in out) or \
-            any("files unchanged" in line and not line.startswith("0") for line in out)
+        updated = any(
+            "files updated" in line and not line.startswith("0") for line in out
+        ) or any("files unchanged" in line and not line.startswith("0") for line in out)
         ok = updated and not errors
         if ok:
             error = None
         elif errors:
             error = "; ".join(errors)
         else:
-            error = "; ".join(out + err) or result.stderr.strip()[:300] or "exiftool did not update the file"
+            error = (
+                "; ".join(out + err)
+                or result.stderr.strip()[:300]
+                or "exiftool did not update the file"
+            )
         results.append({"path": item["path"], "ok": ok, "error": error})
     return results
 
@@ -150,10 +179,18 @@ def handle(message):
     if action == "version":
         result = run(command + ["-ver"])
         if result.returncode != 0:
-            raise RuntimeError(f"exiftool did not run: {result.stderr.strip() or result.stdout.strip()}")
-        return {"ok": True, "version": result.stdout.strip(), "exiftool": " ".join(command)}
+            raise RuntimeError(
+                f"exiftool did not run: {result.stderr.strip() or result.stdout.strip()}"
+            )
+        return {
+            "ok": True,
+            "version": result.stdout.strip(),
+            "exiftool": " ".join(command),
+        }
     if action == "setDates":
-        files = [f for f in message.get("files", []) if f.get("path") and f.get("takenAt")]
+        files = [
+            f for f in message.get("files", []) if f.get("path") and f.get("takenAt")
+        ]
         if not files:
             return {"ok": True, "results": []}
         return {"ok": True, "results": set_dates(command, files)}
@@ -166,7 +203,8 @@ def main():
         if message is None:
             return
         send_message(handle(message))
-    except Exception as err:  # every failure goes back to the extension instead of a silent exit
+    # Every failure goes back to the extension instead of a silent exit.
+    except Exception as err:  # noqa: BLE001
         send_message({"ok": False, "error": str(err)})
 
 

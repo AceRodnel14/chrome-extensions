@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Passman",
+  "version": "0.1.0",
+  "description": "Autofill logins from your self-hosted passman password manager. Reuses your passman web session; never sees your master password.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "cookies"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Passman",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["shared/logic.js", "shared/detect.js", "shared/logo.js", "content.js"],
+      "all_frames": false,
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["menu.html"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ]
+}

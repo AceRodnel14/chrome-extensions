@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+# A Chrome extension's manifest "key" is its PUBLIC key; it pins the extension ID
+# (Media Downloader's fixed ID). It is not a secret. Only a line that is exactly that
+# field (a base64 SubjectPublicKeyInfo, "MI...") is allowed; everything else in
+# manifest.json and other files is still scanned. Path-based allowlists would skip
+# whole files, so this matches the line only.
+[[allowlists]]
+description = "Chrome extension manifest public key"
+regexTarget = "line"
+regexes = ['''^\s*"key":\s*"MI[A-Za-z0-9+/=]{200,}"\s*,?\s*$''']

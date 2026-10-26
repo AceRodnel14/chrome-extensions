@@ -1,0 +1,6 @@
+html, body { height: 100%; overflow: hidden; border-radius: 8px; }
+body { display: flex; flex-direction: column; }
+#content { flex: 1; overflow-y: auto; }
+#content.list { padding: 0; }
+li.pick { cursor: pointer; }
+li.pick:hover, li.pick:focus-visible { background: var(--hover); }

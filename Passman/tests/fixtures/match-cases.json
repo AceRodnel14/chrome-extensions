@@ -1,0 +1,726 @@
+[
+  {
+    "stored": "https://example.com",
+    "page": "https://example.com/login?x=1#f",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com",
+    "page": "https://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com",
+    "page": "http://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "example.com:8080",
+    "page": "http://example.com:8080/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "8080",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "http://example.com",
+    "page": "http://example.com/",
+    "pattern": {
+      "schemes": [
+        "http"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "localhost:3000",
+    "page": "http://localhost:3000/",
+    "pattern": {
+      "schemes": [
+        "http",
+        "https"
+      ],
+      "host": "localhost",
+      "port": "3000",
+      "subdomains": false
+    },
+    "match": true
+  },
+  {
+    "stored": "127.0.0.1:8080",
+    "page": "http://127.0.0.1:8080/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "192.168.1.5",
+    "page": "http://192.168.1.5/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "https://user:pw@example.com/login",
+    "page": "https://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "user@example.com",
+    "page": "https://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com:",
+    "page": "https://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com/?r=http://x.test",
+    "page": "https://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com/?r=http://x.test",
+    "page": "http://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "bücher.de",
+    "page": "https://xn--bcher-kva.de/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "xn--bcher-kva.de",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "xn--bcher-kva.de",
+    "page": "https://bücher.de/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "xn--bcher-kva.de",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "bücher.de",
+    "page": "https://shop.xn--bcher-kva.de/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "xn--bcher-kva.de",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "BÜCHER.de",
+    "page": "https://bücher.de/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "xn--bcher-kva.de",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "co.uk",
+    "page": "https://example.co.uk/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "co.uk",
+      "port": "",
+      "subdomains": false
+    },
+    "match": false
+  },
+  {
+    "stored": "https://github.io",
+    "page": "https://user.github.io/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "github.io",
+      "port": "",
+      "subdomains": false
+    },
+    "match": false
+  },
+  {
+    "stored": "github.io",
+    "page": "https://github.io/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "github.io",
+      "port": "",
+      "subdomains": false
+    },
+    "match": true
+  },
+  {
+    "stored": "user.github.io",
+    "page": "https://a.user.github.io/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "user.github.io",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com/login",
+    "page": "https://example.com/other",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "https://example.com",
+    "page": "http://example.com",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "http://example.com",
+    "page": "https://example.com",
+    "pattern": {
+      "schemes": [
+        "http"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "EXAMPLE.com.",
+    "page": "https://Example.COM./",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com",
+    "page": "https://login.example.com",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com",
+    "page": "https://a.b.example.com",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com",
+    "page": "https://badexample.com",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "login.example.com",
+    "page": "https://example.com",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "login.example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "a.example.com",
+    "page": "https://b.example.com",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "a.example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "example.com:8443",
+    "page": "https://example.com:8443/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "8443",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com:8443",
+    "page": "https://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "8443",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "example.com",
+    "page": "https://example.com:8443/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "https://example.com:443",
+    "page": "https://example.com",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "http://example.com",
+    "page": "http://example.com:80/",
+    "pattern": {
+      "schemes": [
+        "http"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com:80",
+    "page": "https://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "80",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "192.168.1.5",
+    "page": "http://192.168.1.5/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "3.4",
+    "page": "http://1.2.3.4/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "3.4",
+    "page": "https://1.2.3.4/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "https://3.4",
+    "page": "https://1.2.3.4/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "0.1",
+    "page": "https://0.1/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "https://example.com:0443",
+    "page": "https://example.com/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "https://example.com:443",
+    "page": "https://example.com:443/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com:08443",
+    "page": "https://example.com:8443/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "8443",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "example.com:0",
+    "page": "https://example.com/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "example.com:70000",
+    "page": "https://example.com/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "my_host.lan",
+    "page": "https://my_host.lan/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "my_host.lan",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "my_host.lan",
+    "page": "https://a.my_host.lan/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "my_host.lan",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "My_Host.lan",
+    "page": "https://my_host.lan/",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "my_host.lan",
+      "port": "",
+      "subdomains": true
+    },
+    "match": true
+  },
+  {
+    "stored": "lan",
+    "page": "https://my_host.lan/",
+    "pattern": {
+      "schemes": [
+        "http",
+        "https"
+      ],
+      "host": "lan",
+      "port": "",
+      "subdomains": false
+    },
+    "match": false
+  },
+  {
+    "stored": "192.168.1.5",
+    "page": "http://192.168.1.6/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "https://[::1]:8443",
+    "page": "https://[::1]:8443/x",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "https://[::1]",
+    "page": "https://[::2]/",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "localhost:3000",
+    "page": "http://localhost:3000/",
+    "pattern": {
+      "schemes": [
+        "http",
+        "https"
+      ],
+      "host": "localhost",
+      "port": "3000",
+      "subdomains": false
+    },
+    "match": true
+  },
+  {
+    "stored": "localhost",
+    "page": "http://app.localhost/",
+    "pattern": {
+      "schemes": [
+        "http",
+        "https"
+      ],
+      "host": "localhost",
+      "port": "",
+      "subdomains": false
+    },
+    "match": false
+  },
+  {
+    "stored": "",
+    "page": "https://example.com",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "   ",
+    "page": "https://example.com",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "http://exa mple.com",
+    "page": "https://example.com",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "ftp://example.com",
+    "page": "https://example.com",
+    "pattern": null,
+    "match": false
+  },
+  {
+    "stored": "example.com",
+    "page": "ftp://example.com",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "example.com",
+    "page": "example.com",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "example.com",
+    "page": "https:///path",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "example.com",
+    "page": "",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  },
+  {
+    "stored": "example.com",
+    "page": "javascript:alert(1)",
+    "pattern": {
+      "schemes": [
+        "https"
+      ],
+      "host": "example.com",
+      "port": "",
+      "subdomains": true
+    },
+    "match": false
+  }
+]

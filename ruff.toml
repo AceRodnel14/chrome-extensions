@@ -1,0 +1,2 @@
+# Media Downloader's exiftool helper supports Python 3.7+ (see its README).
+target-version = "py37"

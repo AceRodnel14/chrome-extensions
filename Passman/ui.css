@@ -1,0 +1,48 @@
+:root {
+  --bg: #fff;
+  --text: #1f2328;
+  --muted: #5f6368;
+  --border: #e3e5e8;
+  --accent: #2563eb;
+  --accent-text: #fff;
+  --hover: #f1f4fb;
+  --error: #c5221f;
+  --warn-bg: #fff4e5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #222326;
+    --text: #e8eaed;
+    --muted: #a0a4aa;
+    --border: #3a3c40;
+    --accent: #5b8def;
+    --accent-text: #0b1220;
+    --hover: #2c2e33;
+    --error: #f28b82;
+    --warn-bg: #3a2f1c;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+/* Brand header: the logo blue (#0a69c7) in both themes, white text. */
+h1 { font-size: 13px; margin: 0; padding: 10px 12px; background: #0a69c7; color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+h1 .brand { display: flex; align-items: center; gap: 6px; }
+h1 .brand img { width: 18px; height: 18px; }
+h1 small { font-weight: 400; color: rgb(255 255 255 / .85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.body { padding: 10px 12px; }
+.muted { color: var(--muted); }
+.error { color: var(--error); }
+ul { list-style: none; margin: 0; padding: 0; }
+li { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+li:last-child { border-bottom: 0; }
+li .text { flex: 1; min-width: 0; }
+li .label, li .user { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+li .label { font-weight: 600; }
+li .user { color: var(--muted); font-size: 12px; }
+button, a.btn { font: inherit; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 6px; padding: 4px 10px; cursor: pointer; text-decoration: none; display: inline-block; }
+button:hover, a.btn:hover { background: var(--hover); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button:disabled { opacity: .6; cursor: default; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+a { color: var(--accent); }
+.row { display: flex; gap: 8px; margin-top: 10px; }

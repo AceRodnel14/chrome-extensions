@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Passman options</title>
+  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h2>Passman</h2>
+    <p class="muted">Connect this extension to your self-hosted passman. Sign in to passman in a normal tab; the extension reuses that session and never sees your login password.</p>
+    <label for="url">Passman address</label>
+    <input id="url" type="text" inputmode="url" placeholder="https://passman.example.com" autocomplete="off" spellcheck="false">
+    <p id="warn" class="warn" hidden>This address uses plain http. Anyone on the network between you and the server can read your session and your passwords. Use https unless the server is on this computer.</p>
+    <div class="row">
+      <button id="save" class="primary">Save and allow access</button>
+      <button id="test">Test connection</button>
+    </div>
+    <p id="result" role="status"></p>
+    <h3>Saved-sites list</h3>
+    <p class="muted">Passman sends this extension a list of the sites you have entries for (names and addresses, no usernames or passwords). The extension keeps it on this computer, in this browser profile, and checks the pages you visit against it locally. Passman is contacted only when you act: opening a passman tab, Refresh now, opening the popup when the list is old, or clicking an entry to fill.</p>
+    <label for="interval">Recheck after</label>
+    <select id="interval">
+      <option value="15">15 minutes</option>
+      <option value="60">1 hour</option>
+      <option value="360">6 hours</option>
+      <option value="720">12 hours</option>
+      <option value="1440">24 hours</option>
+    </select>
+    <p class="muted">Once the list is older than this, the next popup open or fill refreshes it. Nothing is requested on a timer.</p>
+    <p id="sites" role="status" class="muted"></p>
+    <div class="row"><button id="refresh">Refresh now</button></div>
+
+    <h3>Export backup</h3>
+    <p class="warn">A backup without a backup password is a plain JSON file that contains all your passwords in clear text. Set a backup password to get an encrypted zip, and keep the file somewhere safe.</p>
+    <label for="xpass">Your passman password</label>
+    <input id="xpass" type="password" autocomplete="off">
+    <label for="bpass">Backup password (optional)</label>
+    <input id="bpass" type="password" autocomplete="new-password">
+    <label for="bpass2">Confirm backup password</label>
+    <input id="bpass2" type="password" autocomplete="new-password">
+    <div class="row"><button id="export">Export backup</button></div>
+    <p id="exportResult" role="status"></p>
+  </main>
+  <script src="shared/logic.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

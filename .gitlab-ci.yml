@@ -1,5 +1,7 @@
 include:
   - project: 'acerodnel/gitlab-actions'
+    file: 'templates/lint_all.yml'
+  - project: 'acerodnel/gitlab-actions'
     file: 'templates/sync_to_github.yml'
 
 stages:

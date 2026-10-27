@@ -133,7 +133,7 @@ Diagnose mode and `tools/diagnose.js` find the current value. See "When Instagra
 |---|---|---|
 | Post, reel, carousel | `GET /api/v1/media/{mediaId}/info/` | `items[0]` with `image_versions2.candidates`, `video_versions`, `carousel_media`, `taken_at`, `user.username` |
 | Story and highlight items | GraphQL `doc_id 39400183649572570` (`PolarisStoriesV3HighlightsPageQuery`), variables `{ reel_ids: [id], initial_reel_id: id, first: 1, __relay_internal__pv__PolarisCommunityNoteStoriesLabelEnabledrelayprovider: true }` where `id` is a user ID (stories) or `"highlight:<id>"` | `data.xdt_api__v1__feed__reels_media__connection.edges[0].node` with `items[]` and `user` |
-| Profile (HD profile picture) | GraphQL `doc_id 28717443601247930` (`PolarisProfilePageContentQuery`), variables `{ id, enable_integrity_filters: true, …7 relay provider flags }` | `data.user.hd_profile_pic_url_info.url` (usually 1080×1080; 1000×1000 for some accounts, e.g. nmixx_official). Fails with "execution error" unless every flag in `PROFILE_FLAGS` is sent. |
+| Profile (HD profile picture) | GraphQL `doc_id 40158838120366999` (was 28717443601247930 until 2026-10-27) (`PolarisProfilePageContentQuery`), variables `{ id, enable_integrity_filters: true, …7 relay provider flags }` | `data.user.hd_profile_pic_url_info.url` (usually 1080×1080; 1000×1000 for some accounts, e.g. nmixx_official). Fails with "execution error" unless every flag in `PROFILE_FLAGS` is sent. |
 | Username → user ID | GraphQL `doc_id 27634848489527274` (`PolarisSearchBoxNonProfiledRefetchableQuery`), variables `{ hasQuery: true, query: username }` | `data.xdt_api__v1__fbsearch__non_profiled_serp.users[]`; exact username match only. Cached per page. (IMDownloader's older `26347858941511777` still answered on 2026-10-24 but is no longer in Instagram's scripts.) |
 
 Shortcode → media ID: base64 with alphabet `A–Z a–z 0–9 - _`, read as a big integer (`mediaIdFromCode`). Private
@@ -212,7 +212,9 @@ and read the toast: it names the call that failed (`Post lookup`, `Stories/highl
 
 **2. Run the health check.** Open a profile with posts and highlights, press F12 → Console, paste
 [`tools/diagnose.js`](tools/diagnose.js), press Enter. It tests every call mediadownloader depends on and prints a
-PASS/FAIL table. (Chrome may ask you to type "allow pasting" the first time.)
+PASS/FAIL table. (Chrome may ask you to type "allow pasting" the first time.) The first rows show the page, the
+Chrome version and whether mediadownloader is active in the tab; the last line of the console lists the failed rows.
+A check that cannot run on the page says SKIP; a hung request says "timed out after 10 s" and does not stop the rest.
 
 | FAIL row | Meaning | Fix |
 |---|---|---|
@@ -350,7 +352,7 @@ changed queryId usually goes unnoticed until the health check reports it.
 | Posts with media in the store / Post owner | Store shape changed | Inspect `__store.getState().entities`; update `serialize` in `x-page.js` |
 | Post React props | The `tweet` prop was renamed | Inspect the fibers above an `<article>`; update `tweetFromFiber` |
 | Post element / Action bar | `data-testid`s changed | Update `injectActionBars` (sites/x.js) |
-| queryId … CHANGED | X renumbered the query | Copy the new id into `DOC` in `sites/x.js` and `BUILT_IN` in `tools/diagnose-x.js`; if the feature list changed, copy it into `TWEET_FEATURES` (diagnose-x.js always uses the current one) |
+| queryId … (detail starts "CHANGED:") | X renumbered the query | Copy the new id into `DOC` in `sites/x.js` and `BUILT_IN` in `tools/diagnose-x.js`; if the feature list changed, copy it into `TWEET_FEATURES` (diagnose-x.js always uses the current one) |
 | X main script | X replaced its web app (the logged-out pages already use a different "x-web" build) | Re-check everything in this section against the new app |
 | Post lookup (API) | Variables, headers or response changed | Capture what X itself does: DevTools → Network, filter `TweetResultByRestId` or `TweetDetail`, open a post |
 | Photo from CDN | `name=orig` no longer accepted | Check which `name=` values work on a `pbs.twimg.com/media/` URL |
@@ -417,7 +419,7 @@ buttons, 10 others without). YouTube keeps pages visited earlier in the DOM, hid
 
 ### When YouTube changes something
 
-Run [`tools/diagnose-youtube.js`](tools/diagnose-youtube.js) on a channel's Posts tab (F12 → Console → paste).
+Run [`tools/diagnose-youtube.js`](tools/diagnose-youtube.js) on a channel's Posts tab (F12 → Console → paste). Its `POST`, `POST_IMAGES` and `onPostsPage` are copies of `sites/youtube.js`; keep them in sync.
 
 | FAIL row | Meaning | Fix |
 |---|---|---|
@@ -470,7 +472,9 @@ card, so the button needs `position: relative; z-index: 1` to sit above it; othe
 
 ### Where the files come from
 
-On click, `GET /by_id/<t3 id>.json?raw_json=1` (works logged out) returns the post; for a crosspost the original is
+On click, `GET /comments/<bare id>.json?raw_json=1&limit=1` (same-origin, with cookies) returns `[postListing, commentsListing]`;
+the post is `[0].data.children[0].data`. (`/by_id/t3_<id>.json` and `/api/info.json?id=t3_<id>` return 403 HTML since
+2026-10, observed on Chrome 156.) For a crosspost the original is
 `crosspost_parent_list[0]` and is used for the files and date.
 
 | Post | Files |
@@ -517,13 +521,15 @@ Reddit mp4s needed `-m` ("[minor] Terminator found in Meta…"), which the helpe
 
 ### When Reddit changes something
 
-Run [`tools/diagnose-reddit.js`](tools/diagnose-reddit.js) on a subreddit (F12 → Console → paste).
+Run [`tools/diagnose-reddit.js`](tools/diagnose-reddit.js) on a subreddit (F12 → Console → paste). Its `HOSTED`, `MEDIA_TYPES`, `isRedgifs` and `SLOT` are copies of `sites/reddit.js`;
+keep them in sync. The RedGifs clip lookup runs in the background worker, so the script only checks that RedGifs posts
+have a button; test the lookup by clicking one.
 
 | FAIL row | Meaning | Fix |
 |---|---|---|
 | Post elements / Post attributes | `shreddit-post` or its attributes renamed | Inspect a post; update `injectPosts` (`post-type`, `domain`, `id`) |
 | Action row slot | Slot renamed | List the slots in `post.shadowRoot`; pick a free one at the end of the row; update `SLOT` |
-| Post lookup | `/by_id/<id>.json` changed or blocked | Try `https://www.reddit.com/comments/<id>.json`; update `getPost` |
+| Post lookup | `/comments/<id>.json` changed or blocked (`/by_id` and `/api/info` already return 403) | No other JSON endpoint known; next fallback is the post page's HTML / `shreddit-post` attributes; update `getPost` |
 | Gallery data / Original image | `gallery_data` / `media_metadata` changed | Update the gallery branch of `mediaOf` |
 | Video packaged mp4s | Player attribute renamed | Inspect the `<shreddit-player>`; look for mp4 URLs with audio (`packaged-media.redd.it`); update `packagedMp4s` |
 | No buttons on links to other sites | The `domain` filter let an external post through | Update `HOSTED` |

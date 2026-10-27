@@ -11,7 +11,7 @@
   // scripts and remembers it (chrome.storage.local "learnedDocIds"); see context.md → "When Instagram changes something".
   const DOC = {
     reelsMedia: { name: "PolarisStoriesV3HighlightsPageQuery", id: "39400183649572570", label: "Stories/highlights query" },
-    profile: { name: "PolarisProfilePageContentQuery", id: "28717443601247930", label: "Profile query" },
+    profile: { name: "PolarisProfilePageContentQuery", id: "40158838120366999", label: "Profile query" },
     search: { name: "PolarisSearchBoxNonProfiledRefetchableQuery", id: "27634848489527274", label: "User search" },
   };
   const REELS_FLAGS = { __relay_internal__pv__PolarisCommunityNoteStoriesLabelEnabledrelayprovider: true };

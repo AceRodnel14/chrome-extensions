@@ -16,7 +16,7 @@ about 10 minutes. Each check says what to do and what should happen; see [contex
       Instagram profile with posts and highlights, [`tools/diagnose-x.js`](tools/diagnose-x.js) on an X profile with
       photo posts, [`tools/diagnose-youtube.js`](tools/diagnose-youtube.js) on a YouTube channel's Posts tab,
       [`tools/diagnose-reddit.js`](tools/diagnose-reddit.js) on a subreddit. Every row
-      should be PASS (or SKIP/INFO with a reason). A FAIL already tells you which part to look at.
+      should be PASS (or SKIP/INFO with a reason); the last console line lists any failed rows. A FAIL already tells you which part to look at.
 - [ ] Reload any Instagram, X, YouTube and Reddit tab that was open before the extension was (re)loaded.
 - [ ] Open the page console (F12) and filter on `mediadownloader` to spot errors.
 

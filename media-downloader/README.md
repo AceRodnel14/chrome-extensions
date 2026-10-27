@@ -165,13 +165,14 @@ on the Windows side):
 step 1 of the Windows installation suggests), `git pull` does not reach that copy:
 
 1. `git pull` in the repository.
-2. Copy the updated `Media Downloader` folder's contents over the copy, into the **same** folder (from WSL e.g.
-   `cp -r ~/chrome-extensions/"Media Downloader"/. /mnt/c/Users/<you>/mediadownloader/`). Files that were removed in the
+2. Copy the updated `media-downloader` folder's contents over the copy, into the **same** folder (from WSL e.g.
+   `cp -r ~/chrome-extensions/media-downloader/. /mnt/c/Users/<you>/mediadownloader/`). Files that were removed in the
    update stay behind in the copy; they do no harm, or delete the copy's contents first.
 3. Reload the extension and the open tabs, as above.
 
 **If the new version is in a different folder than the old one** (e.g. you used to load an older copy and now want
-to load the repository):
+to load the repository, or you loaded the repository's old `Media Downloader` folder, which is now called
+`media-downloader`):
 
 1. Note your settings (filename pattern, save location, exiftool folder): removing an extension deletes its settings.
 2. `chrome://extensions` → the old mediadownloader → **Remove**. Two copies with the same ID cannot be loaded at once.

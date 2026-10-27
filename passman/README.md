@@ -9,7 +9,7 @@ It is plain JavaScript with no bundler and no build step, like the other extensi
 ## Installation
 
 1. Go to `chrome://extensions` (Brave: `brave://extensions`, Edge: `edge://extensions`).
-2. Turn on **Developer mode**, click **Load unpacked** and choose the `Passman` folder (the one with `manifest.json`).
+2. Turn on **Developer mode**, click **Load unpacked** and choose the `passman` folder (the one with `manifest.json`).
 3. Put the folder somewhere permanent first: the browser loads it from there every time it starts.
 4. After `git pull`, click the extension's reload arrow and reload open tabs.
 

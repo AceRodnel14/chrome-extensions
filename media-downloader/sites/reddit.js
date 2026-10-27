@@ -2,7 +2,7 @@
 // Adds a download button to posts whose media Reddit hosts itself (i.redd.it images and GIFs, galleries, v.redd.it
 // videos, and crossposts of those) and to posts linking a RedGifs clip, in feeds and on post pages. Link posts to
 // other sites get no button.
-// File lists come from Reddit's own JSON (/by_id/<id>.json); videos use the "packaged" mp4 the page's player
+// File lists come from Reddit's own JSON (/comments/<id>.json); videos use the "packaged" mp4 the page's player
 // carries, because Reddit's plain video files have no sound.
 (() => {
   const SITE_ID = "reddit";
@@ -27,7 +27,9 @@
   // ---------------------------------------------------------------- data
 
   async function getPost(id) {
-    const path = `/by_id/${id}.json?raw_json=1`;
+    const bare = String(id).replace(/^t3_/, "");
+    if (!/^[a-z0-9]+$/i.test(bare)) throw callError("Post lookup", "This post has an unexpected id.", `id ${JSON.stringify(id)}`);
+    const path = `/comments/${bare}.json?raw_json=1&limit=1`;
     diag(`Post lookup: GET ${path}`);
     const r = await fetch(path, { credentials: "include" });
     if (r.status === 429) throw callError("Post lookup", "Reddit is rate limiting requests. Wait a minute and try again.", "HTTP 429");
@@ -38,8 +40,9 @@
     } catch {
       throw callError("Post lookup", "Reddit returned something that is not data.", `GET ${path}: not JSON`);
     }
-    const post = json?.data?.children?.[0]?.data;
-    if (!post) throw callError("Post lookup", "Reddit did not return this post.", `GET ${path}: no data.children[0].data`);
+    // /comments returns [postListing, commentsListing]
+    const post = Array.isArray(json) ? json[0]?.data?.children?.[0]?.data : undefined;
+    if (!post) throw callError("Post lookup", "Reddit did not return this post.", `GET ${path}: no [0].data.children[0].data`);
     diag("Post lookup: OK", post);
     return post;
   }

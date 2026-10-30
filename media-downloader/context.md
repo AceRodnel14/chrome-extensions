@@ -4,7 +4,7 @@ This file explains, per website, where the download buttons come from, which API
 original files, and how the files are saved. Supported: Instagram, X (Twitter), YouTube posts and Reddit; add a section
 per new site.
 
-Last verified against the live sites: **2026-10-24** (Chrome 156): Instagram, X, YouTube posts and Reddit.
+Last verified against the live sites: **2026-10-30** (Chrome 156): Instagram, X, YouTube posts and Reddit.
 
 ---
 
@@ -119,9 +119,11 @@ Nothing is sent anywhere except Instagram and its CDN.
 | App ID header | `X-IG-App-ID: 936619743392459` | Instagram web app ID; required by `/api/v1/` |
 | CSRF header | `X-CSRFToken: <csrftoken cookie>` | GraphQL only |
 | LSD token | `X-FB-LSD` header and `lsd` form field | Scraped from the page's scripts: `"LSD",[],{"token":"…"}` |
+| DTSG token | `fb_dtsg` form field | Scraped from the page's scripts: `"DTSGInitialData",[],{"token":"…"}`. Required since 2026-10-30: without it (or on the old `/graphql/query` endpoint) the user search returns an HTML page instead of data. |
 | Credentials | `credentials: "include"` | Uses the browser's Instagram session |
 
-GraphQL calls are `POST /graphql/query` with form fields `doc_id`, `variables` (JSON), `lsd`, `server_timestamps=true`.
+GraphQL calls are `POST /api/graphql` (the endpoint Instagram's own web app uses; until 2026-10-30 this was
+`/graphql/query`) with form fields `doc_id`, `variables` (JSON), `lsd`, `fb_dtsg`, `server_timestamps=true`.
 The `doc_id`s are Instagram's persisted query IDs. **They are the part most likely to break.** `DOC` in
 `sites/instagram.js` keeps each one with its operation name; Instagram's scripts define them as
 `__d("<Name>_instagramRelayOperation",[],(function(a,b,c,d,e,f){e.exports="<doc_id>"}),null);`, which is how
@@ -132,7 +134,7 @@ Diagnose mode and `tools/diagnose.js` find the current value. See "When Instagra
 | What | Call | Returns |
 |---|---|---|
 | Post, reel, carousel | `GET /api/v1/media/{mediaId}/info/` | `items[0]` with `image_versions2.candidates`, `video_versions`, `carousel_media`, `taken_at`, `user.username` |
-| Story and highlight items | GraphQL `doc_id 39400183649572570` (`PolarisStoriesV3HighlightsPageQuery`), variables `{ reel_ids: [id], initial_reel_id: id, first: 1, __relay_internal__pv__PolarisCommunityNoteStoriesLabelEnabledrelayprovider: true }` where `id` is a user ID (stories) or `"highlight:<id>"` | `data.xdt_api__v1__feed__reels_media__connection.edges[0].node` with `items[]` and `user` |
+| Story and highlight items | GraphQL `doc_id 29299425373007309` (was 39400183649572570 until 2026-10-30) (`PolarisStoriesV3HighlightsPageQuery`), variables `{ reel_ids: [id], initial_reel_id: id, first: 1, __relay_internal__pv__PolarisCommunityNoteStoriesLabelEnabledrelayprovider: true }` where `id` is a user ID (stories) or `"highlight:<id>"` | `data.xdt_api__v1__feed__reels_media__connection.edges[0].node` with `items[]` and `user` |
 | Profile (HD profile picture) | GraphQL `doc_id 40158838120366999` (was 28717443601247930 until 2026-10-27) (`PolarisProfilePageContentQuery`), variables `{ id, enable_integrity_filters: true, …7 relay provider flags }` | `data.user.hd_profile_pic_url_info.url` (usually 1080×1080; 1000×1000 for some accounts, e.g. nmixx_official). Fails with "execution error" unless every flag in `PROFILE_FLAGS` is sent. |
 | Username → user ID | GraphQL `doc_id 27634848489527274` (`PolarisSearchBoxNonProfiledRefetchableQuery`), variables `{ hasQuery: true, query: username }` | `data.xdt_api__v1__fbsearch__non_profiled_serp.users[]`; exact username match only. Cached per page. (IMDownloader's older `26347858941511777` still answered on 2026-10-24 but is no longer in Instagram's scripts.) |
 
@@ -188,7 +190,7 @@ messages still name the call that failed (e.g. "Profile query failed: …"), whi
 While on:
 
 - Every step is logged in the page console with the prefix `[mediadownloader:diagnose]`: the button and target,
-  each request (operation, doc_id, variables, whether the LSD/CSRF tokens were found), each response, which method
+  each request (operation, doc_id, variables, whether the LSD/fb_dtsg/CSRF tokens were found), each response, which method
   found the post code or story slide, the files to save and `chrome.downloads`' results.
 - Error toasts include the technical detail in `[…]`: request, doc_id, HTTP status, Instagram's error text.
 - When a GraphQL query fails (anything except "log in" and "rate limited"), the current doc_id for that operation
@@ -219,7 +221,7 @@ A check that cannot run on the page says SKIP; a hung request says "timed out af
 | FAIL row | Meaning | Fix |
 |---|---|---|
 | Logged in / CSRF token | Session expired | Log in again |
-| LSD token | Instagram moved or renamed the token in the page | Find the new token: View source, search for `LSD`; update the regex in `gqlRequest` (sites/instagram.js) and in diagnose.js |
+| LSD token / DTSG token | Instagram moved or renamed the token in the page | Find the new token: View source, search for `LSD` / `DTSGInitialData`; update the regex in `gqlRequest` (sites/instagram.js) and in diagnose.js |
 | `doc_id …` says CHANGED | Instagram renumbered a query | Step 3a |
 | Post lookup | `/api/v1/media/{id}/info/` changed or was retired | Step 3b; capture what Instagram's own post page calls now |
 | File download from CDN | CDN blocks the request | Check the HTTP status; rare |

@@ -10,7 +10,7 @@
   // is the part that changes most often. In Diagnose mode a failing query looks up the current id in Instagram's
   // scripts and remembers it (chrome.storage.local "learnedDocIds"); see context.md → "When Instagram changes something".
   const DOC = {
-    reelsMedia: { name: "PolarisStoriesV3HighlightsPageQuery", id: "39400183649572570", label: "Stories/highlights query" },
+    reelsMedia: { name: "PolarisStoriesV3HighlightsPageQuery", id: "29299425373007309", label: "Stories/highlights query" },
     profile: { name: "PolarisProfilePageContentQuery", id: "40158838120366999", label: "Profile query" },
     search: { name: "PolarisSearchBoxNonProfiledRefetchableQuery", id: "27634848489527274", label: "User search" },
   };
@@ -55,6 +55,7 @@
   // ---------------------------------------------------------------- API
 
   let lsdToken = null;
+  let dtsgToken = null;
 
   // Errors name the call that failed ("Profile query failed: …"); Diagnose mode adds the technical detail.
   function callError(label, message, detail) {
@@ -85,10 +86,13 @@
   }
 
   async function gqlRequest(doc, docId, variables) {
-    lsdToken ||= ([...document.scripts].map((s) => s.textContent).join(" ").match(/"LSD",\[\],\{"token":"(.*?)"/) || [])[1];
+    // Instagram answers /graphql/query with a web page now; /api/graphql needs the fb_dtsg token from the page scripts.
+    const scriptText = lsdToken && dtsgToken ? "" : [...document.scripts].map((s) => s.textContent).join(" ");
+    lsdToken ||= (scriptText.match(/"LSD",\[\],\{"token":"(.*?)"/) || [])[1];
+    dtsgToken ||= (scriptText.match(/"DTSGInitialData",\[\],\{"token":"(.*?)"/) || [])[1];
     const csrf = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/)?.[1];
-    diag(`${doc.label}: POST /graphql/query`, { operation: doc.name, doc_id: docId, variables, lsdFound: Boolean(lsdToken), csrfFound: Boolean(csrf) });
-    const r = await fetch("/graphql/query", {
+    diag(`${doc.label}: POST /api/graphql`, { operation: doc.name, doc_id: docId, variables, lsdFound: Boolean(lsdToken), dtsgFound: Boolean(dtsgToken), csrfFound: Boolean(csrf) });
+    const r = await fetch("/api/graphql", {
       method: "POST",
       credentials: "include",
       headers: {
@@ -97,7 +101,7 @@
         "X-FB-LSD": lsdToken || "",
         "X-CSRFToken": csrf || "",
       },
-      body: new URLSearchParams({ doc_id: docId, variables: JSON.stringify(variables), lsd: lsdToken || "", server_timestamps: "true" }),
+      body: new URLSearchParams({ doc_id: docId, variables: JSON.stringify(variables), lsd: lsdToken || "", fb_dtsg: dtsgToken || "", server_timestamps: "true" }),
     });
     return parseResponse(r, doc.label, `${doc.name} doc_id ${docId}`);
   }

@@ -17,7 +17,7 @@
   // keep in sync with sites/instagram.js:7 (IG_APP_ID), :12-16 (DOC ids), :17 (REELS_FLAGS), :19-27 (PROFILE_FLAGS)
   const IG_APP_ID = "936619743392459";
   const BUILT_IN = {
-    PolarisStoriesV3HighlightsPageQuery: "39400183649572570",
+    PolarisStoriesV3HighlightsPageQuery: "29299425373007309",
     PolarisProfilePageContentQuery: "40158838120366999",
     PolarisSearchBoxNonProfiledRefetchableQuery: "27634848489527274",
   };
@@ -81,9 +81,11 @@
   // ---- session and tokens
   const csrf = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/)?.[1];
   const lsd = ([...document.scripts].map((s) => s.textContent).join(" ").match(/"LSD",\[\],\{"token":"(.*?)"/) || [])[1];
+  const dtsg = ([...document.scripts].map((s) => s.textContent).join(" ").match(/"DTSGInitialData",\[\],\{"token":"(.*?)"/) || [])[1];
   add("Logged in", document.cookie.includes("ds_user_id") ? "PASS" : "FAIL", document.cookie.includes("ds_user_id") ? "" : "log in to Instagram");
   add("CSRF token (cookie)", csrf ? "PASS" : "FAIL", csrf ? "" : "no csrftoken cookie");
   add("LSD token (page scripts)", lsd ? "PASS" : "FAIL", lsd ? "" : 'pattern "LSD",[],{"token":"…"} not found in the page; GraphQL calls will fail');
+  add("fb_dtsg token (page scripts)", dtsg ? "PASS" : "FAIL", dtsg ? "" : 'pattern "DTSGInitialData",[],{"token":"…"} not found in the page; GraphQL calls will fail');
 
   // ---- current GraphQL ids in Instagram's scripts
   const current = {};
@@ -105,10 +107,10 @@
   // ---- request helpers (same as sites/instagram.js)
   const call = (url, init) => getJSON(url, { credentials: "include", ...init, headers: { "X-IG-App-ID": IG_APP_ID, ...(init?.headers || {}) } });
   const gql = (name, variables) =>
-    call("/graphql/query", {
+    call("/api/graphql", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "X-FB-LSD": lsd || "", "X-CSRFToken": csrf || "" },
-      body: new URLSearchParams({ doc_id: docId(name), variables: JSON.stringify(variables), lsd: lsd || "", server_timestamps: "true" }),
+      body: new URLSearchParams({ doc_id: docId(name), variables: JSON.stringify(variables), lsd: lsd || "", fb_dtsg: dtsg || "", server_timestamps: "true" }),
     });
   const problem = (res) =>
     res.status === 429 ? "HTTP 429 rate limited: wait a few minutes" :

@@ -30,7 +30,8 @@ configuration or subscription check. Since then it has added X (Twitter), YouTub
   plus a one-time `install.bat` (Windows) or `install.sh` (Linux).
 - When a site changes something: [context.md](media-downloader/context.md) has a troubleshooting guide per site,
   [smoke-test.md](media-downloader/smoke-test.md) the checklist, and `tools/` a health check per site
-  (`diagnose.js` for Instagram, `diagnose-x.js`, `diagnose-youtube.js`, `diagnose-reddit.js`).
+  (`diagnose.js` for Instagram, `diagnose-x.js`, `diagnose-youtube.js`, `diagnose-reddit.js`), plus `tools/smoke/smoke.py`,
+  an automated smoke test that downloads from the pages listed in `cases.toml` and logs the results.
 
 Its extension ID is fixed (`cedeopcefllcjmmkopihgkkngehmfmmk`) on every computer and browser.
 

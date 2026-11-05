@@ -1,2 +1,5 @@
 # Media Downloader's exiftool helper supports Python 3.7+ (see its README).
 target-version = "py37"
+
+[per-file-target-version]
+"media-downloader/tools/smoke/*.py" = "py311"

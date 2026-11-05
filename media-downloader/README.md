@@ -186,7 +186,7 @@ to load the repository, or you loaded the repository's old `Media Downloader` fo
 **After any update:**
 
 - Settings → **Enabled websites**: newly supported sites are switched on by default; switch off any you do not want.
-- Optional: run the smoke test's health checks (`tools/diagnose*.js`) to confirm everything works.
+- Optional: run the smoke test's health checks (`tools/diagnose*.js`), or the automated run `tools/smoke/smoke.py`, to confirm everything works.
 - The exiftool helper needs nothing: the browser starts it fresh for every download, so changes to it apply at once.
   Re-run the installer only when the extension's folder moved.
 
@@ -235,6 +235,7 @@ check (`tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, 
 | `sites/reddit.js` | Reddit buttons and file selection (Reddit's JSON, the player's packaged mp4s for videos with sound, and RedGifs clips through `background.js`) |
 | `native/` | exiftool helper (`mediadownloader_exiftool.py`) and its installers; runs outside Chrome |
 | `tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, `tools/diagnose-reddit.js` | Health checks to paste into the console on Instagram / X / YouTube / Reddit when downloads stop working (not part of the extension's runtime) |
+| `tools/smoke/` | Automated smoke test (`smoke.py`, pages in `cases.toml`, logs in `logs/`); see [smoke-test.md](smoke-test.md) "Automated run" (not part of the extension's runtime) |
 
 See [context.md](context.md) for how downloading works per site and [smoke-test.md](smoke-test.md) for the
 checklist to confirm everything still works.

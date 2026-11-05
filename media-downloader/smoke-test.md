@@ -3,6 +3,35 @@
 Run this after changing the extension, after a Chrome update, or whenever Instagram, X, YouTube or Reddit looks different. It takes
 about 10 minutes. Each check says what to do and what should happen; see [context.md](context.md) for how each part works.
 
+## Automated run (optional)
+
+[`tools/smoke/smoke.py`](tools/smoke/smoke.py) runs the download checks for you in the WSL test Chrome (Linux,
+profile `~/.mediadownloader-chrome-profile`; it starts that Chrome if it isn't running and loads the extension).
+The pages it visits are listed in [`tools/smoke/cases.toml`](tools/smoke/cases.toml), whose header explains each field.
+It holds public pages only; for a specific post or user, add a case with `interactive = true`.
+
+```bash
+uv run tools/smoke/smoke.py                      # all cases (run from media-downloader/)
+uv run tools/smoke/smoke.py --only youtube       # one site or case id (repeatable or comma-separated)
+uv run tools/smoke/smoke.py --interactive        # pause before every case: open the page yourself, press Enter
+```
+
+Cases marked `interactive = true` (stories, highlights and other specific posts) always wait: the script names the page
+to open, you open it in the test Chrome and press Enter. A plain run, or `--only instagram` / `--only reddit`, therefore stops at them;
+`--only youtube-posts,reddit-pics,x-nasa-post,x-nasa-tile,instagram-nasa-tile` runs only the unattended ones.
+
+For each case it opens the page, clicks the download button, reads the toast and checks the new files in
+`~/Downloads/<site>/`. It also runs the site's `tools/diagnose*.js` health check where a case says `diagnose = true`.
+Downloaded files are kept; the log lists them. Each run writes `tools/smoke/logs/<date-time>/` (git-ignored):
+
+- `run.log`: everything that happened, in order, for reading.
+- `results.jsonl`: one JSON line per case, health-check row and console line; give this file to an AI to troubleshoot.
+- Screenshots of failed cases.
+
+It exits with 0 when everything passed, 1 when a case or health check failed, and 2 on a setup problem (Chrome or the
+extension could not be started or loaded, or a bad case in `cases.toml`). The manual checklist below still covers what the
+script can't: settings, stories/highlights, and checking that files open.
+
 ## Before you start
 
 - [ ] Load the extension (`chrome://extensions` → Load unpacked) and **reload** it after any code change.

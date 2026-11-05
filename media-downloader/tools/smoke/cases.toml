@@ -1,0 +1,81 @@
+# Smoke-test cases for tools/smoke/smoke.py. Public pages only: no user handles, test accounts or private URLs.
+# For a specific post, story or user, add a case with interactive = true and a prompt; the script then waits while
+# you open the page in the test Chrome and press Enter.
+#
+# Fields of every [[case]]:
+#   id           unique name, used by --only and in the logs (required)
+#   site         instagram | x | youtube | reddit (required); decides the ~/Downloads/<site>.com folder and the health check
+#   url          page to open in a new tab (required unless interactive = true)
+#   interactive  true: print `prompt`, wait for Enter, then attach to your open tab of that site (default false)
+#   prompt       what to tell you to open (required when interactive = true)
+#   kind         the button to click: its data-md-kind value, e.g. post, tile, viewer, story, profile, banner
+#                (required; reddit is always "post")
+#   index        which matching button to click, counting from 0 (default 0)
+#   expect_count how many new files must appear (default: the N in the toast)
+#   expect_ext   allowed file extensions of the new files, e.g. ["jpg", "mp4"] (default: any)
+#   timeout_s    seconds to wait for the button and then for the toast (default 60)
+#   diagnose     true: also run the site's tools/diagnose*.js health check on this page (at most one case per site)
+
+[[case]]
+id = "youtube-posts"
+site = "youtube"
+url = "https://www.youtube.com/@MrBeast/posts"
+kind = "post"
+diagnose = true
+
+[[case]]
+id = "reddit-pics"
+site = "reddit"
+url = "https://www.reddit.com/r/pics/"
+kind = "post"
+diagnose = true
+
+[[case]]
+id = "x-nasa-tile"
+site = "x"
+url = "https://x.com/NASA/media?filter=photo"
+kind = "tile"
+
+[[case]]
+id = "x-nasa-post"
+site = "x"
+url = "https://x.com/NASA"
+kind = "post"
+index = 0
+diagnose = true
+
+[[case]]
+id = "instagram-nasa-tile"
+site = "instagram"
+url = "https://www.instagram.com/nasa/"
+kind = "tile"
+diagnose = true
+
+[[case]]
+id = "instagram-story"
+site = "instagram"
+interactive = true
+prompt = "Open an Instagram story that has a video (a public brand's story is fine)."
+kind = "story"
+
+[[case]]
+id = "instagram-highlight"
+site = "instagram"
+interactive = true
+prompt = "Open an Instagram highlight (instagram.com/stories/highlights/<id>/)."
+kind = "story"
+
+[[case]]
+id = "instagram-carousel-video"
+site = "instagram"
+interactive = true
+prompt = "Open an Instagram post that is a carousel with at least one video."
+kind = "post"
+
+[[case]]
+id = "reddit-redgifs"
+site = "reddit"
+interactive = true
+prompt = "Open a Reddit post whose media is a RedGifs embed."
+kind = "post"
+expect_ext = ["mp4"]

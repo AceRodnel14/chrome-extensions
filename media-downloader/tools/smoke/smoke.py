@@ -45,6 +45,9 @@ SITE_FOLDERS = {
     "x": "x.com",
     "youtube": "youtube.com",
     "reddit": "reddit.com",
+    "rednote": "rednote.com",
+    "naver-blog": "blog.naver.com",
+    "naver-entertain": "entertain.naver.com",
 }
 SITE_DOMAINS = SITE_FOLDERS
 DIAGNOSE_FILES = {
@@ -52,6 +55,9 @@ DIAGNOSE_FILES = {
     "x": "diagnose-x.js",
     "youtube": "diagnose-youtube.js",
     "reddit": "diagnose-reddit.js",
+    "rednote": "diagnose-rednote.js",
+    "naver-blog": "diagnose-naver-blog.js",
+    "naver-entertain": "diagnose-naver-entertain.js",
 }
 CASE_KEYS = {
     "id",
@@ -312,6 +318,20 @@ def is_login_url(url: str) -> bool:
     return bool(LOGIN_RE.search(url))
 
 
+def pick_button_frame(frames: list[Any], selector: str, index: int) -> Any | None:
+    """First frame (the main frame comes first in page.frames) that holds more than `index` buttons, else None.
+
+    Single-frame sites always answer with the main frame. Naver Blog's desktop post lives in iframe#mainFrame.
+    """
+    for frame in frames:
+        try:
+            if frame.locator(selector).count() > index:
+                return frame
+        except Exception:  # a frame that is navigating away
+            log.debug("frame not searchable", exc_info=True)
+    return None
+
+
 # ---------------------------------------------------------------- results log
 
 
@@ -463,18 +483,49 @@ def host_matches(url: str, domain: str) -> bool:
     return host == domain or host.endswith("." + domain)
 
 
-def pick_tab(context: Any, site: str) -> Any | None:
-    """Most recently active tab on the site's domain: a visible one first, else the last in the list."""
-    domain = SITE_DOMAINS[site]
-    tabs = [p for p in context.pages if host_matches(p.url, domain)]
-    for p in reversed(tabs):
+def refresh_pages(context: Any) -> list[Any]:
+    """context.pages after letting Playwright process pending browser events.
+
+    The sync API only handles events (new tabs, navigations) while one of its calls runs, so after a blocking input()
+    the list is stale and a tab the user just opened is missing. A short wait on an existing page pumps them.
+    """
+    for _ in range(5):
+        count = len(context.pages)
         try:
-            if p.evaluate("document.visibilityState") == "visible":
-                return p
+            if context.pages:
+                context.pages[0].wait_for_timeout(300)
+            else:
+                time.sleep(0.3)
         except Exception:
-            log.debug("tab %s not evaluable", p.url, exc_info=True)
-            continue
-    return tabs[-1] if tabs else None
+            log.debug("could not pump browser events", exc_info=True)
+        if len(context.pages) == count:
+            break
+    return list(context.pages)
+
+
+def pick_tab(context: Any, site: str, seen: list[tuple[Any, str]]) -> Any:
+    """The tab the user just opened for an interactive case, only ever among tabs on the site's domain.
+
+    `seen` is [(page, url)] recorded before the prompt. Preference: a tab that is new since then (the most recently
+    opened), else one whose URL changed, else the only candidate. Several candidates or none: SetupError listing them,
+    never a guess, so the runner cannot click in a tab that might be the user's own.
+    """
+    tabs = [
+        p for p in refresh_pages(context) if host_matches(p.url, SITE_DOMAINS[site])
+    ]
+    known = {id(p): url for p, url in seen}
+    new = [p for p in tabs if id(p) not in known]
+    changed = [p for p in tabs if id(p) in known and known[id(p)] != p.url]
+    for group in (new, changed):
+        if group:
+            return group[-1]
+    if len(tabs) == 1:
+        return tabs[0]
+    listing = ", ".join(p.url for p in tabs) or "none"
+    raise SetupError(
+        f"cannot tell which tab to test on {SITE_DOMAINS[site]} "
+        f"(candidates: {listing}); open the page in a new tab and retry"
+    )
 
 
 TOAST_JS = """() => {
@@ -484,12 +535,13 @@ TOAST_JS = """() => {
 
 
 def read_toast(page: Any) -> Toast | None:
+    """`page` is the page or the frame that holds the buttons (the toast is drawn there)."""
     got = page.evaluate(TOAST_JS)
     return parse_toast(got["text"], got["color"]) if got and got["text"] else None
 
 
 def run_diagnose(page: Any, case: Case, results: Results) -> bool:
-    """Run the site's tools/diagnose*.js in the page; log each row. Returns True when no row FAILed."""
+    """Run the site's tools/diagnose*.js in the page (or the frame with the post); log each row. Returns True when no row FAILed."""
     src = (
         (EXT_DIR / "tools" / DIAGNOSE_FILES[case.site])
         .read_text(encoding="utf-8")
@@ -546,11 +598,12 @@ def run_case(
     try:
         before = snapshot(folder)
         if case.interactive or interactive_all:
+            seen = [
+                (p, p.url) for p in refresh_pages(context)
+            ]  # events pumped: see refresh_pages
             log.info(case.prompt or f"Open the {case.site} page to test ({case.url}).")
             input("Press Enter when the page is ready... ")
-            page = pick_tab(context, case.site)
-            if page is None:
-                raise RuntimeError(f"no open tab on {SITE_DOMAINS[case.site]}")
+            page = pick_tab(context, case.site, seen)
             log.info("[%s] attached to tab %s", case.id, page.url)
         else:
             assert case.url
@@ -564,20 +617,25 @@ def run_case(
             raise RuntimeError(f"not logged in (redirected to {page.url})")
         page.bring_to_front()  # background tabs don't lazy-load the badges
         sel = f'.md-download-btn[data-md-kind="{case.kind}"]'
-        btn = page.locator(sel).nth(case.index)
-        try:
-            btn.wait_for(state="attached", timeout=case.timeout_s * 1000)
-        except PWTimeout:
-            if is_login_url(page.url):
-                raise RuntimeError(
-                    f"not logged in (redirected to {page.url})"
-                ) from None
-            raise RuntimeError(
-                f"no button {sel} (index {case.index}) within {case.timeout_s:g} s"
-            ) from None
+        # The frame that holds the buttons: the page's main frame, or for Naver Blog's desktop post its iframe.
+        scope = None
+        btn_deadline = time.monotonic() + case.timeout_s
+        while scope is None:
+            scope = pick_button_frame(page.frames, sel, case.index)
+            if scope is None:
+                if time.monotonic() >= btn_deadline:
+                    if is_login_url(page.url):
+                        raise RuntimeError(f"not logged in (redirected to {page.url})")
+                    raise RuntimeError(
+                        f"no button {sel} (index {case.index}) within {case.timeout_s:g} s"
+                    )
+                time.sleep(0.25)
+        if scope is not page.main_frame:
+            log.info("[%s] buttons are in frame %s", case.id, scope.url)
+        btn = scope.locator(sel).nth(case.index)
         if case.diagnose:
-            out["diagnose_ok"] = run_diagnose(page, case, results)
-        page.evaluate(
+            out["diagnose_ok"] = run_diagnose(scope, case, results)
+        scope.evaluate(
             "() => document.querySelectorAll('div').forEach(d => {"
             " if (d.style.zIndex === '2147483000') d.textContent = '' })"
         )
@@ -594,7 +652,7 @@ def run_case(
         log.info("[%s] clicked %s", case.id, sel)
         deadline = time.monotonic() + case.timeout_s
         while time.monotonic() < deadline:
-            t = read_toast(page)
+            t = read_toast(scope)
             if t and is_final(t):
                 toast = t
                 break
@@ -615,6 +673,8 @@ def run_case(
         out["status"] = "PASS"
         if toast.kind == "warning":
             log.warning("[%s] PASS with note: %s", case.id, toast.text)
+    except SetupError:
+        raise  # exit code 2: the run cannot go on
     except Exception as err:
         error = str(err) or type(err).__name__
         if not isinstance(err, (RuntimeError, PWTimeout)):

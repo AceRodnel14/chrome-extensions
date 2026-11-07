@@ -31,7 +31,7 @@
         <p class="error" id="saveLocationError" hidden></p>
         <p class="preview">Button downloads: <code id="pathPreview"></code><br>Other downloads: <code id="otherPathPreview"></code></p>
         <div class="info">
-          <p>The folder that the website folders (<code>instagram.com</code>, <code>x.com</code>, <code>youtube.com</code>, <code>reddit.com</code>, <code>github.com</code>, …) are created in. Missing folders are created automatically. Use <code>\</code> or <code>/</code> between folders, e.g. <code>Media\Social</code>.</p>
+          <p>The folder that the website folders (<code>instagram.com</code>, <code>x.com</code>, <code>youtube.com</code>, <code>reddit.com</code>, <code>rednote.com</code>, <code>blog.naver.com</code>, <code>entertain.naver.com</code>, <code>github.com</code>, …) are created in. Missing folders are created automatically. Use <code>\</code> or <code>/</code> between folders, e.g. <code>Media\Social</code>.</p>
           <p>Chrome only lets extensions save inside its Downloads folder, so this is a folder inside it. To save on another drive or folder, change Chrome's own download location under Settings → Downloads.</p>
         </div>
         <label class="choice">
@@ -45,7 +45,16 @@
         <label class="choice"><input type="radio" name="imageSize" value="original"> Original</label>
         <label class="choice"><input type="radio" name="imageSize" value="medium"> Medium</label>
         <label class="choice"><input type="radio" name="imageSize" value="small"> Small</label>
-        <p class="hint">On Reddit this only changes videos: Reddit images and GIFs are always saved at their original size, because Reddit's smaller versions are cropped.</p>
+        <p class="hint">On Reddit this only changes videos: Reddit images and GIFs are always saved at their original size, because Reddit's smaller versions are cropped. RedNote is always saved at the original size.</p>
+      </section>
+
+      <section>
+        <h2>Post date from description</h2>
+        <label class="choice">
+          <input type="checkbox" id="preferDescriptionDate">
+          Prefer description YYMMDD date
+        </label>
+        <p class="hint">If the caption (Instagram), title (Reddit) or post text (X) contains exactly one YYMMDD date, e.g. 261107, that date at 08:00 UTC is used as the post time in the filename and the photo/video date. Otherwise the real post time is used. YouTube, RedNote, Naver Blog and Naver Entertain posts always use the real post time.</p>
       </section>
 
       <section>
@@ -78,7 +87,7 @@
         <div class="info">
           <p>While on:</p>
           <ul>
-            <li>Every Instagram, X, YouTube and Reddit call and its result is logged in the page console (F12, filter <code>mediadownloader</code>).</li>
+            <li>Every Instagram, X, YouTube, Reddit, RedNote, Naver Blog and Naver Entertain call and its result is logged in the page console (F12, filter <code>mediadownloader</code>).</li>
             <li>Error messages include the technical detail (which query, which id, what the site answered).</li>
             <li>When a query fails, the current query id is looked up in the site's own scripts, retried once, and remembered.</li>
           </ul>

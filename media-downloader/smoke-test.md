@@ -1,6 +1,6 @@
 # Smoke test
 
-Run this after changing the extension, after a Chrome update, or whenever Instagram, X, YouTube or Reddit looks different. It takes
+Run this after changing the extension, after a Chrome update, or whenever Instagram, X, YouTube, Reddit, RedNote, Naver Blog or Naver Entertain looks different. It takes
 about 10 minutes. Each check says what to do and what should happen; see [context.md](context.md) for how each part works.
 
 ## Automated run (optional)
@@ -17,7 +17,8 @@ uv run tools/smoke/smoke.py --interactive        # pause before every case: open
 ```
 
 Cases marked `interactive = true` (stories, highlights and other specific posts) always wait: the script names the page
-to open, you open it in the test Chrome and press Enter. A plain run, or `--only instagram` / `--only reddit`, therefore stops at them;
+to open, you open it in the test Chrome and press Enter. The script reloads the extension when it starts, so open or
+reload the page at its prompt: a tab opened before the run fails with "Extension context invalidated". A plain run, or `--only instagram` / `--only reddit`, therefore stops at them;
 `--only youtube-posts,reddit-pics,x-nasa-post,x-nasa-tile,instagram-nasa-tile` runs only the unattended ones.
 
 For each case it opens the page, clicks the download button, reads the toast and checks the new files in
@@ -37,21 +38,24 @@ script can't: settings, stories/highlights, and checking that files open.
 - [ ] Load the extension (`chrome://extensions` → Load unpacked) and **reload** it after any code change.
 - [ ] download-organizer (and the old IMDownloader) are **disabled**. Otherwise downloads land in the wrong folder
       with the wrong name, or you get two sets of buttons.
-- [ ] Logged in to Instagram and X in this browser (YouTube posts and Reddit work logged out too).
+- [ ] Logged in to Instagram, X and RedNote in this browser (YouTube posts and Reddit work logged out too).
 - [ ] Settings at their defaults: filename pattern `username_--website--_createdDate`, Save location empty,
-      "Also sort all other downloads" on, file size Original, Instagram, X (Twitter), YouTube (posts) and Reddit enabled, Diagnose mode off
+      "Also sort all other downloads" on, file size Original, Instagram, X (Twitter), YouTube (posts), Reddit, RedNote, Naver Blog and Naver Entertain enabled, Prefer description YYMMDD date off, Diagnose mode off
       (exiftool on or off as you use it; its checks are in their own section).
 - [ ] Run the health checks first, pasting each into the console (F12): [`tools/diagnose.js`](tools/diagnose.js) on an
       Instagram profile with posts and highlights, [`tools/diagnose-x.js`](tools/diagnose-x.js) on an X profile with
       photo posts, [`tools/diagnose-youtube.js`](tools/diagnose-youtube.js) on a YouTube channel's Posts tab,
-      [`tools/diagnose-reddit.js`](tools/diagnose-reddit.js) on a subreddit. Every row
+      [`tools/diagnose-reddit.js`](tools/diagnose-reddit.js) on a subreddit, [`tools/diagnose-rednote.js`](tools/diagnose-rednote.js)
+      on a RedNote profile, [`tools/diagnose-naver-blog.js`](tools/diagnose-naver-blog.js) on a Naver blog post (desktop and
+      mobile), [`tools/diagnose-naver-entertain.js`](tools/diagnose-naver-entertain.js) on a Naver Entertain article (and
+      again on the photo viewer). Every row
       should be PASS (or SKIP/INFO with a reason); the last console line lists any failed rows. A FAIL already tells you which part to look at.
-- [ ] Reload any Instagram, X, YouTube and Reddit tab that was open before the extension was (re)loaded.
+- [ ] Reload any Instagram, X, YouTube, Reddit, RedNote, Naver Blog and Naver Entertain tab that was open before the extension was (re)loaded.
 - [ ] Open the page console (F12) and filter on `mediadownloader` to spot errors.
 
 For every download below, check **three things**: the toast goes from "Downloading N files…" to a green "Saved N of N files …" (amber
 means every file saved but some dates could not be set; red means files are missing), the file really is in the
-site's folder (`Downloads\instagram.com\`, `Downloads\x.com\`, `Downloads\youtube.com\`, `Downloads\reddit.com\`), and it opens (image shows /
+site's folder (`Downloads\instagram.com\`, `Downloads\x.com\`, `Downloads\youtube.com\`, `Downloads\reddit.com\`, `Downloads\rednote.com\`, `Downloads\blog.naver.com\`, `Downloads\entertain.naver.com\`), and it opens (image shows /
 video plays).
 
 ## Instagram: buttons and downloads
@@ -133,6 +137,67 @@ crossposts) and r/gifs/new (uploaded GIFs).
 | R9 | Ad in the feed | Look at it | No button |
 | R10 | File size Small, then a video and a gallery | Click the buttons | Video at the lowest resolution; gallery images still full size (Reddit images are always original) |
 
+## RedNote: buttons and downloads
+
+Logged in. Files go to `Downloads\rednote.com\`, named `<rednote ID>_--rednote--_<date>…`. Health check:
+[`tools/diagnose-rednote.js`](tools/diagnose-rednote.js). Keep it to a few clicks: many lookups in a short time make
+RedNote ask for a security check.
+
+| # | Where | Do | Expect |
+|---|---|---|---|
+| N1 | A profile's grid, a photo post | Click the button on the tile | Every photo, `_0` …, original size (e.g. 2316 px tall), right extension, no watermark; the post does **not** open |
+| N2 | Same grid, a video post | Click the button on the tile | One `.mp4`, no watermark |
+| N3 | Open a post (it shows as `/discovery/item/…`) | Click the button | Same files as from its tile |
+| N4 | The profile picture | Click the badge | `<rednote ID>_--rednote--_profile.jpg`, full size (e.g. 1170×1170) |
+| N5 | Go to another profile **without reloading**, download a post | Click | Named after the **second** profile's rednote ID |
+| N6 | A live photo post (if you find one) | Click | Each photo followed by its clip (`.mp4`) |
+| N7 | Prefer description YYMMDD date on | Download a post | Same file name as with it off |
+| N8 | Logged out | Look at a profile | RedNote's login overlay; nothing wrong is saved |
+
+## Naver Blog: buttons and downloads
+
+No login needed for public posts. Files go to `Downloads\blog.naver.com\`, named
+`<blogId>_--naver--_<date in UTC>_<n>.jpg`, where `<n>` is the picture's 0-based position in the post (always present).
+The post's own date is shown in Korean time (UTC+9), the file name in UTC. Health check:
+[`tools/diagnose-naver-blog.js`](tools/diagnose-naver-blog.js). One click saves one picture; the unit tests are
+`node --test media-downloader/tools/tests/naver-blog.test.js`.
+
+| # | Where | Do | Expect |
+|---|---|---|---|
+| NB1 | A desktop post (`blog.naver.com/<blogId>/<logNo>`) | Look at the pictures | A button on every JPG/PNG picture inside the post frame; none in the page's outer frame or on the blog's post list |
+| NB2 | Same post | Click the button on the 4th picture | One file, `<blogId>_--naver--_<date>_3.jpg`; Naver's image viewer does **not** open; the toast says "Saved …" |
+| NB3 | Same post | Compare the date in the name with the date under the title | Same moment: the title shows KST, the name UTC (14:00 KST = 05:00 UTC; a KST morning time is the previous UTC day) |
+| NB4 | Same post | Open the file | Full size (up to 3840 px wide), not a thumbnail; a picture uploaded wider than 3840 px is scaled down |
+| NB5 | A post with a single picture | Click its button | Name ends with `_0` |
+| NB6 | A mobile post (`m.blog.naver.com/<blogId>/<logNo>`) | Click a button | Same name pattern and the same date as on desktop; same bytes as the desktop file for that picture |
+| NB7 | A picture lazily loaded as you scroll | Scroll down | Buttons appear on the later pictures too |
+| NB8 | Post with GIF pictures, stickers or link-preview cards (if you find one) | Look | No button on them |
+| NB9 | Prefer description YYMMDD date on | Download a picture | Same file name as with it off |
+| NB10 | Settings → Naver Blog off | Look at an open post | Buttons disappear; back on and they return |
+
+## Naver Entertain: buttons and downloads
+
+No login needed. Use the mobile site `m.entertain.naver.com` (the desktop host redirects there). Files go to
+`Downloads\entertain.naver.com\`, named `<press name>_--naver--_<date in UTC>_<n>.jpg`: the press name is Korean without
+spaces; `<n>` is the picture's 0-based position in the article (always present), in the viewer the picture's file number.
+The article shows its time in Korean time (UTC+9), the file name UTC. Health check:
+[`tools/diagnose-naver-entertain.js`](tools/diagnose-naver-entertain.js). One click saves one picture; the unit tests are
+`node --test media-downloader/tools/tests/naver-entertain.test.js media-downloader/tools/tests/naver-shared.test.js`.
+
+| # | Where | Do | Expect |
+|---|---|---|---|
+| NE1 | A news article (`m.entertain.naver.com/home/article/<oid>/<aid>`) with several pictures | Look at the article | A button on every JPG/PNG picture of the article body; none on the thumbnails of the related lists |
+| NE2 | Same article | Click the button on the 2nd picture | One file, `<press>_--naver--_<date>_1.jpg`; the toast says "Saved …" |
+| NE3 | Same article | Compare the date in the name with the 입력 line under the title | Same moment: the page shows KST, the name UTC (오후 3:44 = 15:44 KST = 06:44 UTC; 오전 12:xx is 00:xx KST, the previous UTC day). The 수정 time is never used |
+| NE4 | Same article | Open the file | Full size, not a 647 px thumbnail |
+| NE5 | A photo article (`/photo/article/<oid>/<aid>`) | Click its button | Name ends with `_0`; same press name and date rules |
+| NE6 | The photo viewer (`/entertain?…#main/<imgId>`) | Look at the page | One button on the picture, not one per slide |
+| NE7 | Same viewer | Click the button, press the right arrow to the next picture, click again | Two files, each for the picture that was on screen at the click: `<press>_--naver--_<date>_<file number>.jpg`; the date matches the footer (minute precision, seconds 00) |
+| NE8 | Same viewer | Compare the name's press and date with the footer line `<press> \| YYYY.MM.DD. 오전\|오후 H:MM` | Press name without spaces, date as in NE3 |
+| NE9 | An article that is reached by clicking a link on another article | Look at it once loaded | Buttons appear without reloading |
+| NE10 | Prefer description YYMMDD date on | Download a picture | Same file name as with it off |
+| NE11 | Settings → Naver Entertain off | Look at an open article | Buttons disappear; back on and they return |
+
 ## Settings
 
 | # | Do | Expect |
@@ -141,8 +206,13 @@ crossposts) and r/gifs/new (uploaded GIFs).
 | 17 | Set file size to Small, Save, download an image | A small image (about 150–320 px) |
 | 18 | Set Save location to `Media\Social`, Save, download a post | File in `Downloads\Media\Social\instagram.com\`; folders created automatically |
 | 19 | Type `C:\Users\you\Pictures` as Save location and click Save | Red message about Chrome's Downloads folder; "Not saved"; the previous value is still in effect |
-| 20 | Turn Instagram off under Enabled websites, Save | All buttons disappear from open Instagram tabs immediately; turn it back on and they return. Same for X (Twitter), YouTube (posts) and Reddit |
+| 20 | Turn Instagram off under Enabled websites, Save | All buttons disappear from open Instagram tabs immediately; turn it back on and they return. Same for X (Twitter), YouTube (posts), Reddit and RedNote |
 | 21 | Turn on Diagnose mode, Save, download anything | Console (filter `mediadownloader`) shows `[mediadownloader:diagnose]` lines for each step; turn it off again |
+| 21a | Tick **Prefer description YYMMDD date**, Save, reload Settings, then reload the extension | Still ticked after both (settings survive updates) |
+| 21b | With it on, download an Instagram post or reel whose caption has one `YYMMDD` (e.g. `261024 …`) | `createdDate` = that date at `T080000.000Z`; every carousel file the same |
+| 21c | With it on, download a Reddit post whose title has one `YYMMDD`, and an X post whose text has one | Same: the title's / post text's date at `T080000.000Z` |
+| 21d | With it on, download a post with no `YYMMDD` (or two of them), and a YouTube post | The real publish time, as with the setting off (YouTube never uses the option) |
+| 21e | With exiftool on, check a file from 21b | DateTimeOriginal = `YYYY:MM:DD 08:00:00`, matching the filename |
 | 22 | Put every setting back to the defaults above | |
 
 ## exiftool (only if you use it)
@@ -154,7 +224,7 @@ Prerequisite: helper installed (`native/install.bat` or `native/install.sh`), Ch
 | E1 | Settings → exiftool folder: type a wrong folder, click Test | Red "folder does not exist" / "No exiftool found in …" |
 | E2 | Enter the right folder, click Test | "exiftool 13.xx found (…)" |
 | E3 | Tick "Write the post date…", Save; download a carousel with a video | Toast "Downloading N files… The dates are set when they are done." then green "Saved N of N files. Dates set on N." |
-| E4 | Check a downloaded photo and the video: `exiftool -DateTimeOriginal -CreateDate -ModifyDate <file>` (or Windows: right-click → Properties → Details → "Date taken" / "Media created") | All equal the `createdDate` in the filename (UTC clock time) |
+| E4 | Check a downloaded photo and the video: `exiftool -G1 -a -time:all <file>` (or Windows: right-click → Properties → Details → "Date taken" / "Media created") | Photo: dates = the filename's `createdDate` converted to your time zone, `OffsetTime*` = your offset. Video: QuickTime, Track and Media Create/Modify dates = the filename's UTC time, none `0000:00:00`. Both: File Modification Date = the same moment |
 | E5 | Download a story slide | "Saved … Date set."; date = the slide's own post time |
 | E6 | Download a profile picture | Plain green "Saved …profile.jpg." with no date part (profile pictures have no post date) |
 | E7 | Uninstall the helper (`install.bat uninstall` / `install.sh --uninstall`), restart Chrome, download | File saved; amber toast "Saved … Dates set on 0 of 1; not set: …: the exiftool helper is not installed …". Reinstall afterwards |
@@ -171,12 +241,15 @@ Prerequisite: helper installed (`native/install.bat` or `native/install.sh`), Ch
 ## When something fails
 
 Follow context.md → **"When Instagram changes something"**, **"When X changes something"**, **"When YouTube changes
-something"** or **"When Reddit changes something"**. In short:
+something"**, **"When Reddit changes something"**, **"When RedNote changes something"** **"When Naver changes something"** (Naver Blog) or **"When Naver Entertain changes something"**. In short:
 
 1. Read the error toast: it names the call that failed.
 2. Run the site's health check: paste [`tools/diagnose.js`](tools/diagnose.js) (Instagram profile),
    [`tools/diagnose-x.js`](tools/diagnose-x.js) (X profile) or [`tools/diagnose-youtube.js`](tools/diagnose-youtube.js)
-   (YouTube channel's Posts tab) or [`tools/diagnose-reddit.js`](tools/diagnose-reddit.js) (subreddit) into the console.
+   (YouTube channel's Posts tab), [`tools/diagnose-reddit.js`](tools/diagnose-reddit.js) (subreddit) or
+   [`tools/diagnose-rednote.js`](tools/diagnose-rednote.js) (RedNote profile) or
+   [`tools/diagnose-naver-blog.js`](tools/diagnose-naver-blog.js) (Naver blog post) or
+   [`tools/diagnose-naver-entertain.js`](tools/diagnose-naver-entertain.js) (Naver Entertain article or viewer) into the console.
 3. Turn on **Diagnose mode** in Settings, reload the site, retry the failing button and read the console
    (filter `mediadownloader`). A renumbered query is often fixed automatically at this point.
 

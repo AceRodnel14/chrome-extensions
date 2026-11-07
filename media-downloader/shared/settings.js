@@ -7,6 +7,9 @@
     { id: "x", name: "X (Twitter)", hosts: ["x.com", "twitter.com"] },
     { id: "youtube", name: "YouTube (posts)", hosts: ["youtube.com"] },
     { id: "reddit", name: "Reddit", hosts: ["reddit.com"] },
+    { id: "rednote", name: "RedNote", hosts: ["rednote.com"] },
+    { id: "naver-blog", name: "Naver Blog", hosts: ["blog.naver.com", "m.blog.naver.com"] },
+    { id: "naver-entertain", name: "Naver Entertain", hosts: ["entertain.naver.com", "m.entertain.naver.com"] },
   ];
 
   const DEFAULTS = {
@@ -14,6 +17,7 @@
     saveLocation: "", // base folder inside Chrome's Downloads folder that the site folders go in; empty = Downloads
     imageSize: "original", // original | medium | small
     organizeOtherDownloads: true, // every other download goes to a folder named after its source domain
+    preferDescriptionDate: false, // a single YYMMDD date in the post text replaces the real post time (08:00 UTC); only Instagram, Reddit and X call this
     exiftoolEnabled: false, // write the post date into downloaded files with exiftool (needs native/ helper installed)
     exiftoolDir: "", // folder that holds exiftool / exiftool.exe
     diagnoseMode: false, // extra logging and self-repair of changed GraphQL ids; off for normal use
@@ -21,9 +25,9 @@
   };
 
   const VARIABLES = {
-    username: "Username of the account that posted it (Reddit: the subreddit)",
-    createdDate: "Date it was posted (profile pictures use \"profile\", banners \"banner\")",
-    website: "Site it was downloaded from, without the domain ending (instagram.com → instagram, x.com → x, youtube.com → youtube, reddit.com → reddit)",
+    username: "Username of the account that posted it (Reddit: the subreddit; Naver Blog: the blog id; Naver Entertain: the press name)",
+    createdDate: "Date it was posted, or the YYMMDD date in the description if \"Prefer description YYMMDD date\" is on (Instagram, Reddit, X; profile pictures use \"profile\", banners \"banner\")",
+    website: "Site it was downloaded from, without the domain ending (instagram.com → instagram, x.com → x, youtube.com → youtube, reddit.com → reddit, rednote.com → rednote, *.naver.com → naver)",
   };
 
   // Second-level suffixes where the site name is one label further left (bbc.co.uk → bbc).
@@ -106,8 +110,29 @@
     return [base, cleanFolder(folder), filename].filter(Boolean).join("/");
   }
 
+  // The one YYMMDD date in a post's description as Unix seconds (that day, 08:00 UTC), or null.
+  // URLs are ignored; letters or digits next to the six digits block a match; impossible dates are not counted.
+  // Zero or several valid dates (even the same one twice) give null, so the real post time is used.
+  function descriptionDate(text) {
+    if (!text || typeof text !== "string") return null;
+    const clean = text.replace(/https?:\/\/\S+/g, " ");
+    const times = [];
+    for (const m of clean.matchAll(/(?<![A-Za-z0-9])(\d{2})(\d{2})(\d{2})(?![A-Za-z0-9])/g)) {
+      const [yy, mm, dd] = [Number(m[1]), Number(m[2]), Number(m[3])];
+      const d = new Date(Date.UTC(2000 + yy, mm - 1, dd, 8));
+      if (d.getUTCFullYear() === 2000 + yy && d.getUTCMonth() === mm - 1 && d.getUTCDate() === dd) times.push(d.getTime() / 1000);
+    }
+    return times.length === 1 ? times[0] : null;
+  }
+
+  // Only Instagram, Reddit and X call this; YouTube always uses the real post time.
+  // Post time in Unix seconds: the description date when the setting is on and the text has exactly one, else the real time.
+  function postTime(realSeconds, text, settings) {
+    return (settings?.preferDescriptionDate && descriptionDate(text)) || realSeconds;
+  }
+
   globalThis.MDSettings = {
     SITES, DEFAULTS, VARIABLES, websiteName, load, save, formatDate, buildFilename,
-    siteFolder, saveLocationError, cleanFolder, buildPath,
+    siteFolder, saveLocationError, cleanFolder, buildPath, descriptionDate, postTime,
   };
 })();

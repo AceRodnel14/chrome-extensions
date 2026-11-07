@@ -12,8 +12,10 @@ Messages:
       -> {"ok": true, "results": [{"path": "...", "ok": true, "error": null}, ...]}
 Errors: {"ok": false, "error": "..."}
 
-setDates writes the post time (takenAt, Unix seconds) to every file with one exiftool run, using the same tags
-and format as the original Python script: no time zone, the UTC clock time that is also in the filename.
+setDates writes the post time (takenAt, Unix seconds) to every file with one exiftool run, as the post instant in the
+PC's local time with its UTC offset (e.g. 2026:11:07 16:00:00+08:00), so Immich places the media correctly. EXIF
+tags get the local time plus OffsetTime*; MP4/MOV QuickTime dates are stored as UTC (QuickTimeUTC=1); the file's
+modification date is set too. Filenames (made by the extension) still show the UTC time.
 
 Works on Windows (started through mediadownloader_exiftool.bat) and Linux/macOS (started directly).
 Standard library only.
@@ -102,25 +104,38 @@ def run(command, **kwargs):
     )
 
 
-def exif_timestamp(taken_at):
-    # Same format as the original script; the UTC clock time, matching createdDate in the filename.
-    return datetime.fromtimestamp(int(taken_at), tz=timezone.utc).strftime(
-        "%Y:%m:%d %H:%M:%S"
-    )
+def local_stamp(taken_at, tz=None):
+    """Return (stamp, offset) for the instant: ("2026:11:07 16:00:00+08:00", "+08:00").
+
+    tz None means the PC's own zone at that instant (DST-safe).
+    """
+    moment = datetime.fromtimestamp(int(taken_at), tz=timezone.utc).astimezone(tz)
+    offset = moment.strftime("%z")  # +0800 on Python 3.7: insert the colon ourselves
+    offset = f"{offset[:3]}:{offset[3:5]}"
+    return moment.strftime("%Y:%m:%d %H:%M:%S") + offset, offset
 
 
-def set_dates(command, files):
+def set_dates(command, files, tz=None):
     """One exiftool run for all files; per-file output is split by echo markers."""
     lines = []
     for index, item in enumerate(files):
-        ts = exif_timestamp(item["takenAt"])
+        ts, offset = local_stamp(item["takenAt"], tz)
         lines += [
-            "-m",  # write despite "[minor]" problems, e.g. the odd EXIF in some PNGs from YouTube posts
+            "-m",  # write despite "[minor]" problems, e.g. the odd EXIF in some PNGs from YouTube posts;
+            # also silently skips tags a format lacks
             "-overwrite_original",
-            f"-DateTimeOriginal={ts}",
+            # exiftool resets options after each -execute, so this is repeated in every block
+            "-api",
+            "QuickTimeUTC=1",
             f"-AllDates={ts}",
             f"-CreationTime={ts}",
             f"-ModifyDate={ts}",
+            f"-OffsetTime*={offset}",
+            f"-TrackCreateDate={ts}",
+            f"-TrackModifyDate={ts}",
+            f"-MediaCreateDate={ts}",
+            f"-MediaModifyDate={ts}",
+            f"-FileModifyDate={ts}",
             "-echo3",
             f"{MARKER} {index}",  # printed to stdout after this file
             "-echo4",
@@ -135,7 +150,15 @@ def set_dates(command, files):
     ) as argfile:
         argfile.write("\n".join(lines) + "\n")
     try:
-        result = run(command + ["-charset", "filename=utf8", "-@", argfile.name])
+        result = run(
+            command
+            + [
+                "-charset",
+                "filename=utf8",
+                "-@",
+                argfile.name,
+            ]
+        )
     finally:
         os.unlink(argfile.name)
 

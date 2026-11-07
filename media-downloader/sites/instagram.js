@@ -247,9 +247,11 @@
   // One entry per file: a single post gives one, a carousel gives one per slide.
   function filesFromMedia(media, username, indexOffset = null) {
     const slides = media.carousel_media?.length ? media.carousel_media : [media];
+    const takenAt = MDSettings.postTime(media.taken_at || null, media.caption?.text, settings);
+    if (takenAt !== (media.taken_at || null)) diag("using the YYMMDD date from the caption", new Date(takenAt * 1000).toISOString());
     const vars = {
       username: username || media.user?.username || "",
-      createdDate: MDSettings.formatDate(media.taken_at ? media.taken_at * 1000 : null),
+      createdDate: MDSettings.formatDate(takenAt ? takenAt * 1000 : null),
       website: MDSettings.websiteName(location.hostname),
     };
     return slides.map((slide, i) => {
@@ -260,7 +262,7 @@
       return {
         url,
         filename: MDSettings.buildFilename(settings.filenamePattern, vars, index, extensionFor(url, isVideo)),
-        takenAt: media.taken_at || null, // post time in Unix seconds, for the exiftool helper
+        takenAt, // post time in Unix seconds, for the exiftool helper
       };
     });
   }

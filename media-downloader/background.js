@@ -213,6 +213,28 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
+// RedNote: probe (ranged GET of the first byte) the original-image URLs of one note, so the content script can pick the file extension from the
+// Content-Type and fall back to the smaller file when the original is missing. One message per click.
+// Reply: { ok: true, results: [{ status, contentType }] } in the order of msg.urls; status is 200 when the file exists
+// (200 or 206), else the HTTP status, or 0 when it could not be reached.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type !== "rednoteProbe") return;
+  const urls = (Array.isArray(msg.urls) ? msg.urls : []).slice(0, 100);
+  Promise.all(
+    urls.map((url) =>
+      /^https:\/\/ci\.xiaohongshu\.com\//.test(url)
+        ? fetch(url, { headers: { Range: "bytes=0-0" } })
+            .then((r) => {
+              r.body?.cancel();
+              return { status: r.status === 206 ? 200 : r.status, contentType: (r.headers.get("content-type") || "").split(";")[0].trim() };
+            })
+            .catch(() => ({ status: 0, contentType: "" }))
+        : { status: 0, contentType: "" }
+    )
+  ).then((results) => sendResponse({ ok: true, results }));
+  return true;
+});
+
 function takeOwnPath(url) {
   const queue = ownDownloads.get(url);
   if (!queue?.length) return null;

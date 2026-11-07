@@ -15,6 +15,18 @@ Supported websites:
 - **Reddit**: images, galleries, uploaded GIFs and videos (with sound) hosted on Reddit itself (`i.redd.it`,
   `v.redd.it`), including crossposts of them, and RedGifs clips linked from posts (saved as the `.mp4` RedGifs
   hosts; it keeps no GIF files), named after the subreddit. Posts that link to other sites are left alone.
+- **RedNote** (`rednote.com`, logged in), on a user's profile page: photos, videos and live photos (photo + clip)
+  of a post, from its tile in the profile grid or the opened post, at their original size without watermark, plus the
+  profile picture. Files are named after the profile's **rednote ID**.
+- **Naver Blog** (`blog.naver.com` and `m.blog.naver.com`), on a post's page: every picture (JPG and PNG, up to
+  3840 px wide) of posts written in Naver's current editor, one button per picture, one picture per click. Files are
+  named after the **blog id** from the address and the post's publish time (in UTC), plus the picture's position
+  in the post. Not supported: GIFs, stickers, videos and old posts written in the previous editor (SmartEditor 2).
+- **Naver Entertain** (`m.entertain.naver.com`; the desktop `entertain.naver.com` redirects there), on a news article, a
+  photo article and the photo viewer: every picture (JPG and PNG, original size) of the article, one button per
+  picture, and in the viewer one button for the picture on screen. Files are named after the **press name** (Korean,
+  without spaces) and the article's publish time (in UTC), plus the picture's position in the article (in the viewer:
+  the picture's file number). Not supported: GIFs, videos and other media.
 
 ## Origin
 
@@ -62,7 +74,7 @@ will not move or delete, for example `C:\Users\<you>\mediadownloader`.
 3. Click **Load unpacked** and choose the `mediadownloader` folder (the one that contains `manifest.json`).
 4. Check that the card shows **ID `cedeopcefllcjmmkopihgkkngehmfmmk`**.
 5. Optional: click the puzzle-piece icon in the toolbar and pin mediadownloader. Clicking its icon opens Settings.
-6. Reload any Instagram, X, YouTube and Reddit tabs that were already open.
+6. Reload any Instagram, X, YouTube, Reddit, RedNote, Naver Blog and Naver Entertain tabs that were already open.
 
 Chrome may show a "Disable developer mode extensions" message at startup; that is normal for unpacked extensions,
 just close it.
@@ -100,8 +112,9 @@ tray icon → Exit.
 
 Download any post: the message changes from "Downloading N files… The dates are set when they are done." to
 "Saved N of N files. Dates set on N." In Explorer,
-right-click a photo → Properties → Details → **Date taken** shows the post's date (in UTC, the same time as in the
-filename).
+right-click a photo → Properties → Details → **Date taken** shows the post's date and time in your computer's time
+zone (the filename keeps the time in UTC). Videos get the same moment in all their date fields, and the file's
+"Date modified" is the post time too, so Immich and photo apps sort them on the right day.
 
 ### Linux (Debian, Ubuntu and other Debian-based)
 
@@ -110,7 +123,7 @@ filename).
 1. Put the `mediadownloader` folder somewhere permanent, e.g. `~/mediadownloader`.
 2. In Chrome, Chromium or Brave go to `chrome://extensions` (Brave: `brave://extensions`), turn on **Developer mode**, click **Load unpacked** and choose
    the folder.
-3. Check the ID is **`cedeopcefllcjmmkopihgkkngehmfmmk`**, then reload any open Instagram, X, YouTube and Reddit tabs.
+3. Check the ID is **`cedeopcefllcjmmkopihgkkngehmfmmk`**, then reload any open Instagram, X, YouTube, Reddit, RedNote, Naver Blog and Naver Entertain tabs.
 
 #### 2. Optional: exiftool helper
 
@@ -159,7 +172,7 @@ on the Windows side):
 1. Update the files: `git pull` in the repository.
 2. Open `chrome://extensions` (Brave: `brave://extensions`, Edge: `edge://extensions`) → mediadownloader → click the
    **reload** arrow. (Restarting the browser also works.)
-3. Reload the Instagram, X, YouTube and Reddit tabs that were open; they keep the old version until reloaded.
+3. Reload the Instagram, X, YouTube, Reddit, RedNote, Naver Blog and Naver Entertain tabs that were open; they keep the old version until reloaded.
 
 **If the browser loads a copy of the folder** (e.g. you copied it out of WSL to `C:\Users\<you>\mediadownloader`, as
 step 1 of the Windows installation suggests), `git pull` does not reach that copy:
@@ -186,8 +199,10 @@ to load the repository, or you loaded the repository's old `Media Downloader` fo
 **After any update:**
 
 - Settings → **Enabled websites**: newly supported sites are switched on by default; switch off any you do not want.
+- Your settings are kept, including **Prefer description YYMMDD date** (new in 0.3.0, off by default). New settings start at their default.
 - Optional: run the smoke test's health checks (`tools/diagnose*.js`), or the automated run `tools/smoke/smoke.py`, to confirm everything works.
-- The exiftool helper needs nothing: the browser starts it fresh for every download, so changes to it apply at once.
+- The exiftool helper needs nothing: the browser starts it fresh for every download, so changes to it apply at once
+  (if the browser loads a copy of the folder, copy `native/` along with the rest).
   Re-run the installer only when the extension's folder moved.
 
 ### Removing
@@ -200,28 +215,45 @@ to load the repository, or you loaded the repository's old `Media Downloader` fo
 | Symptom | Fix |
 |---|---|
 | ID on the extension card is not `cedeopcefllcjmmkopihgkkngehmfmmk` | You loaded a different folder or an old copy: remove it and load the folder whose `manifest.json` has a `"key"` |
-| No download buttons on Instagram, X, YouTube or Reddit | Reload the tab; check Settings → Enabled websites; check `chrome://extensions` for errors |
+| No download buttons on Instagram, X, YouTube, Reddit, RedNote, Naver Blog or Naver Entertain | Reload the tab; check Settings → Enabled websites; check `chrome://extensions` for errors |
+| No buttons on a Naver blog post | Only posts written in Naver's current editor (SmartEditor ONE) get buttons, and only for JPG and PNG pictures; old posts, GIFs and stickers are left out. On the desktop site the post is inside a frame: reload the tab after updating the extension |
+| No buttons on a Naver Entertain page | Only news articles, photo articles and the photo viewer get buttons, and only for JPG and PNG pictures. Photo-list pages and the album viewer (`/photo/viewer?albumId=…`) are not supported. Reload the tab after updating the extension |
 | Test: "the exiftool helper is not installed …" | Run the installer, then fully restart Chrome (also from the tray on Windows) |
 | Test: "No exiftool found in …" | The folder is wrong, or on Windows the file is still named `exiftool(-k).exe`: rename it to `exiftool.exe` |
 | Test: "… it needs Perl and perl is not installed" | Very unusual (Perl is part of every Debian-based system): `sudo apt install perl-base`. On Windows, use the `exiftool.exe` download instead of the Perl `exiftool` script |
 | install.bat: "Python 3 was not found" | Install Python (step 3a) and run `install.bat` again |
 | Test: "the exiftool helper exited without an answer" | Python crashed before answering: in Command Prompt run `py -3 --version` (Linux: `python3 --version`) to check Python itself works |
-| Dates are 8 hours "off" | Expected: the date is written in UTC without a time zone, like the time in the filename |
+| Dates differ from the filename by some hours | Expected: the filename is in UTC, the dates in the files are in your computer's time zone (with the offset stored, so the moment is the same) |
+
+## Dates from the description (optional)
+
+Settings → **Prefer description YYMMDD date** (off by default). Fan accounts often write the event date in the
+caption, e.g. `261024 Yujin - Fansign Event`. With this on, if the description holds **exactly one** `YYMMDD` date,
+that date at 08:00 UTC is used instead of the upload time, for the filename's `createdDate` and (with exiftool) the
+photo and video dates of every file in the post. No date, or more than one: the upload time is used as before.
+The description is the caption on Instagram, the post **title** on Reddit, and the post text on X. YouTube posts,
+RedNote, Naver Blog and Naver Entertain posts (and any site added later) always use the upload time.
+The date may be anywhere in the text, also as a hashtag (`#261024`); digits glued to other letters or digits
+(`20261024`, `IMG261024`) and links are ignored.
 
 ## When downloads stop working
 
-Instagram, X, YouTube and Reddit change their web apps often. Follow context.md →
+Instagram, X, YouTube, Reddit, RedNote, Naver Blog and Naver Entertain change their web apps often. Follow context.md →
 ["When Instagram changes something"](context.md#when-instagram-changes-something),
 ["When X changes something"](context.md#when-x-changes-something) or
-["When YouTube changes something"](context.md#when-youtube-changes-something) or
-["When Reddit changes something"](context.md#when-reddit-changes-something): read the error toast, run the health
-check (`tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, `tools/diagnose-reddit.js`), and turn on Diagnose mode in Settings.
+["When YouTube changes something"](context.md#when-youtube-changes-something),
+["When Reddit changes something"](context.md#when-reddit-changes-something) or
+["When RedNote changes something"](context.md#when-rednote-changes-something) or
+["When Naver changes something"](context.md#when-naver-changes-something) (Naver Blog) or
+["When Naver Entertain changes something"](context.md#when-naver-entertain-changes-something): read the error toast, run the health
+check (`tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, `tools/diagnose-reddit.js`,
+`tools/diagnose-rednote.js`, `tools/diagnose-naver-blog.js`, `tools/diagnose-naver-entertain.js`), and turn on Diagnose mode in Settings.
 
 ## Files
 
 | Path | What it does |
 |---|---|
-| `manifest.json` | Permissions (`downloads`, `storage`, `nativeMessaging`, Instagram, X, YouTube and Reddit host access, and `api.redgifs.com` for RedGifs clips on Reddit) and content scripts |
+| `manifest.json` | Permissions (`downloads`, `storage`, `nativeMessaging`, Instagram, X, YouTube, Reddit and RedNote host access (Naver Blog and Naver Entertain need none), `api.redgifs.com` for RedGifs clips on Reddit, and `ci.xiaohongshu.com` to check RedNote original photos) and content scripts |
 | `background.js` | Saves files with `chrome.downloads` and decides the folder of every download |
 | `shared/settings.js` | Settings defaults, filename/folder building; shared by all parts |
 | `shared/report.js` | The final download message (files saved, failed, dated), shared by every site |
@@ -234,8 +266,17 @@ check (`tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, 
 | `sites/youtube-page.js` | Helper running in YouTube's page context that reads a post's images from its element data |
 | `sites/reddit.js` | Reddit buttons and file selection (Reddit's JSON, the player's packaged mp4s for videos with sound, and RedGifs clips through `background.js`) |
 | `native/` | exiftool helper (`mediadownloader_exiftool.py`) and its installers; runs outside Chrome |
-| `tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, `tools/diagnose-reddit.js` | Health checks to paste into the console on Instagram / X / YouTube / Reddit when downloads stop working (not part of the extension's runtime) |
+| `sites/rednote.js` | RedNote buttons and file selection (one lookup of the post's page per click, original photos, videos, live photos, profile picture) |
+| `sites/naver-blog.js` | Naver Blog buttons and file selection (one button per picture; everything is read from the page, no requests; runs in every frame because the desktop post is in an iframe) |
+| `sites/naver-entertain.js` | Naver Entertain buttons and file selection (one button per article picture, one for the viewer's active picture; everything is read from the page, no requests) |
+| `shared/naver.js` | Helpers shared by the two Naver sites (file extension, Korean time parser, press-name space removal) |
+| `tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, `tools/diagnose-reddit.js`, `tools/diagnose-rednote.js`, `tools/diagnose-naver-blog.js`, `tools/diagnose-naver-entertain.js` | Health checks to paste into the console on Instagram / X / YouTube / Reddit / RedNote / Naver Blog / Naver Entertain when downloads stop working (not part of the extension's runtime) |
 | `tools/smoke/` | Automated smoke test (`smoke.py`, pages in `cases.toml`, logs in `logs/`); see [smoke-test.md](smoke-test.md) "Automated run" (not part of the extension's runtime) |
+| `tools/tests/` | Unit tests for the description-date parser in `shared/settings.js` and the Naver helpers (`shared/naver.js`, `sites/naver-blog.js`, `sites/naver-entertain.js`): `node --test media-downloader/tools/tests/*.test.js` (Node 20+, no dependencies; not part of the extension's runtime) |
 
 See [context.md](context.md) for how downloading works per site and [smoke-test.md](smoke-test.md) for the
 checklist to confirm everything still works.
+
+---
+
+_Developed with assistance from Claude (Claude Opus 5.5)._

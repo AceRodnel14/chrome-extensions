@@ -165,6 +165,7 @@
     return {
       id: tweet.rest_id,
       createdAt: tweet.legacy.created_at,
+      text: tweet.note_tweet?.note_tweet_results?.result?.text || tweet.legacy.full_text || "",
       username: user?.core?.screen_name || user?.legacy?.screen_name || "",
       media,
       quoted: !media.length && quoted ? fromGraphql(quoted) : null,
@@ -224,7 +225,9 @@
   function filesFromTweet(tweet, only = null) {
     const source = tweet.media.length ? tweet : tweet.quoted; // a post without media that quotes one with media
     if (!source?.media.length) throw new Error("This post has no photos or videos.");
-    const takenAt = Date.parse(source.createdAt) / 1000 || null;
+    const realTime = Date.parse(source.createdAt) / 1000 || null;
+    const takenAt = MDSettings.postTime(realTime, source.text, settings);
+    if (takenAt !== realTime) diag("using the YYMMDD date from the post text", new Date(takenAt * 1000).toISOString());
     const vars = {
       username: source.username,
       createdDate: MDSettings.formatDate(takenAt ? takenAt * 1000 : null),

@@ -4,6 +4,7 @@ const locationInput = document.getElementById("saveLocation");
 const locationErrorEl = document.getElementById("saveLocationError");
 const organizeInput = document.getElementById("organizeOtherDownloads");
 const diagnoseInput = document.getElementById("diagnoseMode");
+const preferDescInput = document.getElementById("preferDescriptionDate");
 const exiftoolInput = document.getElementById("exiftoolEnabled");
 const exiftoolDirInput = document.getElementById("exiftoolDir");
 const exiftoolStatusEl = document.getElementById("exiftoolStatus");
@@ -113,6 +114,7 @@ async function init() {
   locationInput.value = settings.saveLocation;
   organizeInput.checked = settings.organizeOtherDownloads;
   diagnoseInput.checked = settings.diagnoseMode;
+  preferDescInput.checked = settings.preferDescriptionDate;
   exiftoolInput.checked = settings.exiftoolEnabled;
   exiftoolDirInput.value = settings.exiftoolDir;
   renderLearnedDocIds();
@@ -154,6 +156,7 @@ form.addEventListener("submit", async (e) => {
     imageSize: form.querySelector('input[name="imageSize"]:checked').value,
     organizeOtherDownloads: organizeInput.checked,
     diagnoseMode: diagnoseInput.checked,
+    preferDescriptionDate: preferDescInput.checked,
     exiftoolEnabled: exiftoolInput.checked,
     exiftoolDir: exiftoolDirInput.value.trim(),
     sites,

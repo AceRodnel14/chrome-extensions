@@ -4,17 +4,19 @@
 #
 # Fields of every [[case]]:
 #   id           unique name, used by --only and in the logs (required)
-#   site         instagram | x | youtube | reddit (required); decides the ~/Downloads/<site>.com folder and the health check
+#   site         instagram | x | youtube | reddit | rednote | naver-blog | naver-entertain (required); decides the ~/Downloads/<folder> (the site's first host) and the health check
 #   url          page to open in a new tab (required unless interactive = true)
 #   interactive  true: print `prompt`, wait for Enter, then attach to your open tab of that site (default false)
 #   prompt       what to tell you to open (required when interactive = true)
-#   kind         the button to click: its data-md-kind value, e.g. post, tile, viewer, story, profile, banner
+#   kind         the button to click: its data-md-kind value, e.g. post, tile, viewer, story, profile, banner, image
 #                (required; reddit is always "post")
 #   index        which matching button to click, counting from 0 (default 0)
 #   expect_count how many new files must appear (default: the N in the toast)
 #   expect_ext   allowed file extensions of the new files, e.g. ["jpg", "mp4"] (default: any)
 #   timeout_s    seconds to wait for the button and then for the toast (default 60)
 #   diagnose     true: also run the site's tools/diagnose*.js health check on this page (at most one case per site)
+#
+# The buttons may sit in a frame of the page (Naver Blog's desktop post is in iframe#mainFrame); the script finds it.
 
 [[case]]
 id = "youtube-posts"
@@ -79,3 +81,65 @@ interactive = true
 prompt = "Open a Reddit post whose media is a RedGifs embed."
 kind = "post"
 expect_ext = ["mp4"]
+
+[[case]]
+id = "rednote-profile-tile"
+site = "rednote"
+interactive = true
+prompt = "Open a RedNote profile (logged in) with image and video posts."
+kind = "tile"
+diagnose = true
+
+[[case]]
+id = "naver-blog-desktop"
+site = "naver-blog"
+interactive = true
+prompt = "Open a desktop Naver blog post (blog.naver.com/<blogId>/<logNo>) written in the current editor, with JPG pictures."
+kind = "image"
+index = 3
+expect_count = 1
+expect_ext = ["jpg", "png"]
+diagnose = true
+
+# No diagnose here: cases.toml allows one diagnose case per site, and the desktop case runs it.
+[[case]]
+id = "naver-blog-mobile"
+site = "naver-blog"
+interactive = true
+prompt = "Open a mobile Naver blog post (m.blog.naver.com/<blogId>/<logNo>) written in the current editor, with JPG pictures."
+kind = "image"
+index = 3
+expect_count = 1
+expect_ext = ["jpg", "png"]
+
+[[case]]
+id = "naver-entertain-article"
+site = "naver-entertain"
+interactive = true
+prompt = "Open a Naver Entertain news article (m.entertain.naver.com/home/article/<oid>/<aid>) with JPG pictures."
+kind = "image"
+index = 0
+expect_count = 1
+expect_ext = ["jpg", "png"]
+diagnose = true
+
+# No diagnose here: one diagnose case per site, and the article case runs it.
+[[case]]
+id = "naver-entertain-photo-article"
+site = "naver-entertain"
+interactive = true
+prompt = "Open a Naver Entertain photo article (m.entertain.naver.com/photo/article/<oid>/<aid>)."
+kind = "image"
+index = 0
+expect_count = 1
+expect_ext = ["jpg", "png"]
+
+# The viewer has one button for the active slide, so kind is "viewer" (articles use "image").
+[[case]]
+id = "naver-entertain-viewer"
+site = "naver-entertain"
+interactive = true
+prompt = "Open a Naver Entertain photo viewer page (m.entertain.naver.com/entertain?...#main/<imgId>, a big picture with a footer)."
+kind = "viewer"
+expect_count = 1
+expect_ext = ["jpg", "png"]

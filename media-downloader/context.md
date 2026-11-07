@@ -1,7 +1,7 @@
 # How mediadownloader gets files
 
 This file explains, per website, where the download buttons come from, which APIs are called to find the
-original files, and how the files are saved. Supported: Instagram, X (Twitter), YouTube posts and Reddit; add a section
+original files, and how the files are saved. Supported: Instagram, X (Twitter), YouTube posts, Reddit, RedNote, Naver Blog and Naver Entertain; add a section
 per new site.
 
 Last verified against the live sites: **2026-10-30** (Chrome 156): Instagram, X, YouTube posts and Reddit.
@@ -30,8 +30,8 @@ Last verified against the live sites: **2026-10-30** (Chrome 156): Instagram, X,
 | Part | Where it comes from |
 |---|---|
 | Save location | Settings. Optional. Relative only: `chrome.downloads` rejects absolute paths, so `C:\…` is refused in Settings. `\` and `/` both work; `..`, unsafe characters and Windows reserved names (CON, NUL, …) are cleaned. |
-| Website folder | For button downloads: the site's main host (`MDSettings.SITES[].hosts[0]`, e.g. `instagram.com`, `x.com`, `youtube.com`, `reddit.com`). For every other download: the domain of the file's URL without `www.` (download-organizer's rule). |
-| Filename | The filename pattern from Settings with `username`, `createdDate`, `website` filled in, plus `_<index>` for carousels and story sets. |
+| Website folder | For button downloads: the site's main host (`MDSettings.SITES[].hosts[0]`, e.g. `instagram.com`, `x.com`, `youtube.com`, `reddit.com`, `rednote.com`, `blog.naver.com`, `entertain.naver.com`). For every other download: the domain of the file's URL without `www.` (download-organizer's rule). |
+| Filename | The filename pattern from Settings with `username`, `createdDate`, `website` filled in, plus `_<index>` for carousels and story sets. `createdDate` is the publish time, or the description date when that setting is on (see "Description date"). |
 
 ### Folders for all other downloads (download-organizer)
 
@@ -52,7 +52,7 @@ Chrome **native messaging**: `native/mediadownloader_exiftool.py`, registered un
 `manifest.json`; unpacked extensions otherwise get a different ID per folder).
 
 1. The content script sends each file with `takenAt` (Unix seconds = publish time: Instagram `taken_at`, X `created_at`,
-   YouTube's post page `publishDate`, Reddit `created_utc`).
+   YouTube's post page `publishDate`, Reddit `created_utc`, RedNote the note's `time`, Naver Blog and Naver Entertain the post's publish time).
 2. `background.js` starts the downloads and records the click's download IDs as one batch in `chrome.storage.session`
    (survives the worker being stopped during long downloads). Every click gets a batch, with or without exiftool.
 3. When every download of the batch is `complete` or `interrupted` (`chrome.downloads.onChanged`), the completed
@@ -62,6 +62,28 @@ Chrome **native messaging**: `native/mediadownloader_exiftool.py`, registered un
    block per file separated by `-execute`, and runs exiftool **once** for the batch. `-echo3`/`-echo4` markers split
    the output so each file gets its own result.
 5. The result goes into the batch's report (below).
+
+### Description date (optional)
+
+Settings → **Prefer description YYMMDD date** (Instagram, Reddit and X only), off by default (`preferDescriptionDate` in `chrome.storage.sync`; like
+every setting it survives updates and reloads, and only Remove/uninstall clears it). When on, each content script
+passes the post's description to `MDSettings.postTime(realSeconds, text, settings)` (`shared/settings.js`):
+
+| Site | Description |
+|---|---|
+| Instagram | the post's caption (`caption.text` of the post, not of each carousel slide) |
+| Reddit | the post **title** (for a crosspost, the original post's title, where the files and date already come from) |
+| X | the post text (`note_tweet` for long posts, else `full_text`; for a repost, the original post) |
+
+Only these three sites call `postTime`. YouTube, RedNote, Naver Blog and Naver Entertain posts always keep the real publish time (for Naver the description date does not apply at all), and a site added later does not use the option unless the user decides it should.
+
+`MDSettings.descriptionDate(text)` removes URLs (`https?://…`, including t.co links), then looks for six digits
+`YYMMDD` with no letter or digit directly before or after (`#261107`, `[261107]`, `261107_x` count; `20261107`,
+`IMG261107`, `lamhyj91` do not). A match counts only if it is a real date (month 01–12, a day that exists, leap
+years). If there is **exactly one** match, that date at **08:00 UTC** becomes the post time: `takenAt` and
+`createdDate` are both derived from it, so the filename and the exiftool dates agree, and every file of the post
+gets it. No match, two different dates, or the same date written twice: the real publish time is kept. Stories
+(no caption) and profile pictures are unchanged. Tests: `node --test media-downloader/tools/tests/*.test.js`.
 
 ### The download report
 
@@ -80,13 +102,31 @@ file (404)"); `dates` is `null` when exiftool is off or no file has a post date 
 So the numbers always add up: files asked for = saved + failed, and dates set + not set = saved files with a post
 date. Reddit adds "N gallery items could not be saved" for gallery items it skips before downloading.
 
-Tags and value, same as the original Python script: `-m -overwrite_original -DateTimeOriginal=… -AllDates=…
--CreationTime=… -ModifyDate=…`, value `YYYY:MM:DD HH:MM:SS` = `taken_at` in **UTC**, no time zone (the same time as
-`createdDate` in the filename). exiftool writes what each format supports and skips the rest (checked: JPEG, HEIC,
-WebP, PNG, MP4/MOV). `-m` lets it write despite "[minor]" problems, such as the non-standard EXIF in some PNGs
-from YouTube posts ("IFD0 pointer references previous IFD0 directory"), which otherwise fail the file. For MP4/MOV it stores the value as given, which is right because those dates are UTC by
-standard; it also appends the computer's offset to `UserData:DateTimeOriginal` on its own. Photos show the UTC clock
-time (e.g. 8 hours behind Philippine time). Profile pictures (no post date) and other downloads are not touched.
+Tags and value (since 0.3.0), per file in the argument file: `-m -overwrite_original -api QuickTimeUTC=1
+-AllDates=STAMP -CreationTime=STAMP -ModifyDate=STAMP -OffsetTime*=OFF -TrackCreateDate=STAMP -TrackModifyDate=STAMP
+-MediaCreateDate=STAMP -MediaModifyDate=STAMP -FileModifyDate=STAMP`. STAMP is the post instant (`takenAt`) in the
+**computer's local time with its offset**, e.g. `2026:11:07 16:00:00+08:00` for 08:00 UTC in the Philippines; OFF is
+that offset (`+08:00`), taken for the post's own date so daylight saving is right (`local_stamp` in the helper).
+`-api QuickTimeUTC=1` is repeated in every block: exiftool resets options at each `-execute`, so on the command line it
+would apply to the first file only. The filename's `createdDate` stays in UTC.
+
+- Photos (JPEG, HEIC, WebP, PNG): the EXIF/XMP dates show the local clock time, with `OffsetTime*` saying which zone.
+- MP4/MOV: `QuickTimeUTC` makes exiftool convert STAMP to UTC for the movie, track and media dates (UTC by standard),
+  so all of them hold the same instant; before 0.3.0 the per-track dates stayed `0000:00:00`, and
+  `UserData:DateTimeOriginal` got the computer's offset appended to a UTC value (8 hours wrong for readers that use it).
+- The file's own modification time ("Date modified") is the post instant too.
+- exiftool writes what each format supports and silently skips the rest (`-m`; checked: JPEG, HEIC, WebP, PNG,
+  MP4/MOV). `-m` also lets it write despite "[minor]" problems, such as the non-standard EXIF in some PNGs from
+  YouTube posts ("IFD0 pointer references previous IFD0 directory"), which otherwise fail the file.
+- **Immich** (checked against Immich v3.3.6 `server/src/services/metadata.service.ts`, by simulating its exiftool
+  reads, not on a live server): it takes the first of SubSecDateTimeOriginal, SubSecCreateDate, DateTimeOriginal,
+  CreationDate, CreateDate, MediaCreateDate, …; a date with an offset keeps it (timeline time and day grouping in
+  that zone), a zoneless one counts as UTC, QuickTime dates are UTC, and the file time is only a fallback. So photos
+  and videos land at the post instant, shown and grouped in the computer's zone. Re-check after major Immich updates.
+- Profile pictures (no post date) and other downloads are not touched.
+- Tests: `PYTHONDONTWRITEBYTECODE=1 uv run --with pytest pytest -p no:cacheprovider media-downloader/tools/tests/test_exiftool_helper.py`
+  (set `EXIFTOOL_DIR` to an exiftool folder to also run the real-exiftool test, and `EXIFTOOL_TEST_MP4=<any small .mp4>`
+  to include a video in it).
 
 Settings → **Test** sends `{action: "version", exiftoolDir}` and shows the exiftool version or the helper's error
 (including "helper not installed", which is Chrome's "Specified native messaging host not found").
@@ -95,7 +135,10 @@ Settings → **Test** sends `{action: "version", exiftoolDir}` and shows the exi
 
 `MDSettings.SITES` lists every supported site. A site's content script only adds buttons while its switch is on in
 Settings; switching it off removes the buttons from open tabs immediately (via `chrome.storage.onChanged`). A site is
-added to the list only once its content script exists.
+added to the list only once its content script exists. Naver Blog is listed as `naver-blog` and Naver Entertain as `naver-entertain` (not `naver`), because every
+Naver site needs its own entry and folder; they share the filename token `naver`. The helpers the Naver sites share
+(file extension, Korean time parser, press-name space removal) live in `shared/naver.js` (global `MDNaver`), loaded
+before the site file; the pasted diagnose scripts keep marked copies.
 
 ---
 
@@ -535,3 +578,269 @@ have a button; test the lookup by clicking one.
 | Gallery data / Original image | `gallery_data` / `media_metadata` changed | Update the gallery branch of `mediaOf` |
 | Video packaged mp4s | Player attribute renamed | Inspect the `<shreddit-player>`; look for mp4 URLs with audio (`packaged-media.redd.it`); update `packagedMp4s` |
 | No buttons on links to other sites | The `domain` filter let an external post through | Update `HOSTED` |
+
+---
+
+## RedNote
+
+Content script on `https://www.rednote.com/*`: `sites/rednote.js` (isolated world only). Scope, as the user asked:
+**profile pages only** (`/user/profile/<uid>`), no feed. RedNote shows a user's notes only when **logged in** (logged out,
+a "Log in to view this user's notes" overlay covers the grid). Researched 2026-11-07; details in agentic-config
+`research/rednote-media-downloader.md`.
+
+### Where the buttons go
+
+| Button | Where | Note ID and token |
+|---|---|---|
+| `tile` | Each `section.note-item` in the profile grid | `a.cover[href]` = `/user/profile/<uid>/<noteId>?xsec_token=…`, read at click time (the token can expire) |
+| `note` | The opened note (URL `/discovery/item/<noteId>?xsec_token=…`) | From `location` |
+| `profile` | The profile header's avatar | — |
+
+A note opened on its own (`/explore/<id>` outside a profile) gets no button: the page has no rednote ID to name it by.
+
+### The rednote ID (filename `username`)
+
+RedNote is a single-page app: after moving from one profile to another without reloading, the inline
+`window.__INITIAL_STATE__` still describes the **first** profile. So the ID comes from the DOM `.user-redId`
+("rednote ID: …"); the inline state's `user.userPageData.basicInfo.redId` is the fallback, used only when the state is
+for this profile. `basicInfo` itself has no user id, so the check is that a note card in the state
+(`user.notes[*][i].noteCard.user.userId`) has the uid from the URL (`basicInfoFor` in `sites/rednote.js`). `user.userInfo` is the **viewer's own** account and is never read. No match → "Profile lookup failed: no
+RedNote ID on this page"; the hex id and the display name are never used instead.
+
+### One lookup per click
+
+Each click makes **one** same-origin request, with the user's cookies and no request signing:
+`/explore/<noteId>?xsec_token=<token>&xsec_source=pc_user`. Its HTML holds `window.__INITIAL_STATE__` (JavaScript, not
+JSON: `new Set([…])` and bare `undefined` are rewritten before `JSON.parse`; nothing is evaluated or inserted into the
+page) with the note at `note.noteDetailMap[<noteId>].note`. Nothing is fetched in advance and nothing is retried.
+
+**Security check (captcha).** RedNote redirects to `/website-login/captcha` after many lookups in a short time (seen
+after about 100 in a few minutes during research). The extension then shows "Note lookup failed: RedNote asks for a
+security check. Open the note in this tab, complete it, then try again." The signed `webapi.rednote.com` feed API
+(`x-s`, `x-t` headers) is deliberately not used.
+
+### Picking the file
+
+| Note | File(s) |
+|---|---|
+| Photos | Per `imageList[i]`: `https://ci.xiaohongshu.com/<fileId>` = the **original** (e.g. 2316×3088 JPEG, no watermark). The page's own URLs (`urlDefault`, `infoList` `WB_DFT`) are signed, smaller WebPs and are only the fallback |
+| Video | The first non-empty `video.media.stream[<codec>]` (the keys `EF4`…`EF7` are obfuscated, so none is named) `[0].masterUrl` (h264 `.mp4`, no watermark), else `backupUrls[0]`; the cover image is skipped |
+| Live photo | `imageList[i].livePhoto` with a `stream`: the photo, then its clip (`.mp4`), numbered one after the other. Not yet seen on a real note |
+| Profile picture | `basicInfo.images` (or the avatar `src`) without its query string: `sns-avatar-qc.rednotecdn.com/avatar/<id>`, the original (e.g. 1170×1170) |
+
+`background.js` requests the first byte of each original photo (`rednoteProbe`, a ranged GET `Range: bytes=0-0`, host
+permission `ci.xiaohongshu.com`): the Content-Type gives the extension (JPEG, HEIC, PNG, WebP); any answer other than
+200/206 means the fallback URL is used. The CDN
+files need no cookies or referer, so `chrome.downloads` saves them directly. The File size setting does not apply:
+always the original.
+
+`username` = rednote ID; `createdDate` = the note's `time` (ms) in UTC; `takenAt` = the same in seconds; `website` =
+`rednote`; folder `rednote.com`. Profile pictures use `profile`. The description-date option does not apply.
+
+### When RedNote changes something
+
+Run [`tools/diagnose-rednote.js`](tools/diagnose-rednote.js) on a RedNote profile while logged in (F12 → Console →
+paste). It makes at most one note lookup. Its constants are copies of `sites/rednote.js`; keep them in sync.
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| No buttons on tiles | `section.note-item` / `a.cover` renamed | Inspect a tile; update the selectors |
+| "Profile lookup failed: no RedNote ID …" | `.user-redId` or `user.userPageData.basicInfo` changed | Inspect the profile header / the inline state |
+| "Note lookup failed: … security check" | Captcha | Open the note, complete the check, retry later; never loop |
+| "Note lookup failed" otherwise | `/explore` page or `noteDetailMap` changed | Check the state in the fetched HTML; update the parser |
+| Video not found | `video.media.stream` changed | Inspect the note's state; look for `masterUrl` |
+| Photos saved small | The ci original returned non-200 | Check the `fileId` and `ci.xiaohongshu.com` with curl |
+
+---
+
+## Naver Blog
+
+Content script on `https://blog.naver.com/*` and `https://m.blog.naver.com/*`: `sites/naver-blog.js` (isolated world
+only, no `-page.js`, no host permission). Scope, as the user asked: **photos only**, one button per picture, one picture
+per click. Everything needed is already in the page: no request, no new tab, no prefetching. Researched 2026-11-07;
+details in agentic-config `research/naver-blog-media-downloader.md`.
+
+### Where the buttons go (and the iframe)
+
+- Button `image` (`.md-download-btn[data-md-kind="image"]`) goes into the `.se-module-image` wrapper of every
+  `.se-main-container a.__se_image_link[data-linkdata]`. The surrounding `<a>` opens Naver's image viewer, so the
+  button stops and cancels pointer and click events.
+- Desktop `blog.naver.com/<blogId>/<logNo>` is only a frameset; the post is in the same-origin `iframe#mainFrame`
+  (`/PostView.naver?blogId=…&logNo=…`). The manifest entry therefore has `"all_frames": true` (the only one that does),
+  and the script does nothing unless the document has `.se-viewer .se-main-container`, so the frameset's top frame, the
+  list page (`PostList.naver`, titles only) and the `about:blank` helper frames stay inert. Opening a post from the list
+  navigates the iframe, which injects the script again. The toast appears inside the frame that holds the post, and
+  only the frame that started a click shows its result.
+- `m.blog.naver.com/<blogId>/<logNo>` is a normal page with the same markup, no frames.
+- The pictures load lazily, so a `MutationObserver` adds buttons as they appear. Settings → Enabled websites uses the
+  id `naver-blog`.
+
+### Blog id (filename `username`)
+
+The blog id from the address: `blogId` of `PostView.naver?blogId=…` (desktop iframe), otherwise the path
+`/<blogId>/<logNo>` (mobile, or a top-level post page). It must match `/^[A-Za-z0-9_-]+$/`; if it is missing or
+invalid the click fails with "Blog id lookup failed: …". The blog's nickname is never used instead.
+
+### Dates (filename `createdDate`)
+
+The post's **publish time**, in this order:
+
+1. Desktop: the inline script variable `var postWriteDate = "<ms>"` (regex over `document.scripts`; page globals are
+   not visible from the isolated world).
+2. Mobile: the hidden `#_post_property[addDate]` attribute (ms).
+3. Fallback: the visible text `YYYY. M. D. HH:mm` (`.se_publishDate` on desktop, `.blog_date .txt` on mobile), which is
+   Korean time (UTC+9) and parsed as `+09:00` (minute precision).
+
+If none works the click fails with "Post date lookup failed: …"; a date is never guessed. The file name uses **UTC**
+like the other sites (`MDSettings.formatDate(ms)`), so a post shown as `2023. 3. 30. 14:00` becomes
+`2023-03-30T050012.063Z`, and a KST morning time falls on the previous UTC day. `takenAt` = ms / 1000 for the exiftool
+helper. The description-date option does not apply: `MDSettings.postTime` and `descriptionDate` are never called.
+
+### Picking the file
+
+Per picture, read `JSON.parse(link.dataset.linkdata).src` (never `<img src>`, which is a small, lazy placeholder
+size). It is rewritten with `new URL`: only `https:` and hosts ending in `.pstatic.net` are accepted; the host becomes
+`postfiles.pstatic.net` (the mobile page uses `mblogthumb-phinf…`, which does not serve large sizes), the path stays,
+and `searchParams` `type=w3840`. The extension is the last path segment's extension, lowercased, `jpeg` → `jpg`.
+
+- `w3840` is the largest size Naver serves (`w5000`, `orig` and no type give 404 or a 100 px thumbnail). Pictures
+  uploaded wider than 3840 px come out scaled down to 3840 px; narrower ones keep their size.
+- Naver re-encodes the file and strips EXIF, so camera dates are not in it; the exiftool helper writes the post date.
+- **Only `.jpg` and `.png` are supported.** Any other or unknown extension (gif, webp, none) is skipped: the picture
+  gets no button, rather than a guessed file type. Stickers/emoticons (another host), link-preview cards and old
+  SmartEditor 2 posts (no `.se-viewer`) get no button either.
+- No Referer is needed (extension downloads send none); the CDN refuses foreign Referers but not missing ones.
+
+File name: `username` = blog id, `createdDate` as above, `website` = `naver` (`MDSettings.websiteName` gives `naver`
+for both hosts, and will for every future Naver site), folder `blog.naver.com`. The picture's 0-based position among
+all `a.__se_image_link` of the post, `_<n>`, is **always** added, even when the post has one picture (one click saves one
+file, so the number keeps files of the same post apart): `blog.naver.com/<blogId>_--naver--_2023-03-30T050012.063Z_3.jpg`.
+
+### When Naver changes something
+
+Run [`tools/diagnose-naver-blog.js`](tools/diagnose-naver-blog.js) on a post page (F12 → Console → paste; on the desktop
+site it looks into `iframe#mainFrame`). It makes no request except an optional one-byte ranged GET. Its helpers are
+copies of `sites/naver-blog.js` and `shared/naver.js`; keep them in sync. Unit tests for the helpers: `node --test tools/tests/naver-blog.test.js tools/tests/naver-shared.test.js`.
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| No buttons on a post | `.se-viewer .se-main-container`, `a.__se_image_link` or `.se-module-image` renamed, or an old SmartEditor 2 post | Inspect the post; update the selectors |
+| "Blog id lookup failed" | URL shape changed (`blogId` query / `/<id>/<logNo>`) | Check `location` in the frame that holds the post |
+| "Post date lookup failed" | `postWriteDate`, `#_post_property` and the date text all changed | Run the diagnose script, find the new source |
+| "Picture lookup failed: … data" | `data-linkdata` is no longer JSON with `src` | Inspect the link element |
+| "Picture lookup failed: … Naver's image server" | Pictures moved off `*.pstatic.net` | Check the `src`; update `rewriteImageUrl` |
+| Download fails (404 / HTML file) | `type=w3840` no longer allowed | Check the sizes with a ranged `curl` |
+
+### Future improvements
+
+Untested or unsupported today, and may come later: animated GIFs (Naver may return a still frame or convert them to
+video), stickers and emoticons, videos, old SmartEditor 2 posts, other Naver sites (the shared helpers are in `shared/naver.js`), and the full-size original of uploads wider than 3840 px (Naver may not expose it).
+
+---
+
+## Naver Entertain
+
+Content script on `https://m.entertain.naver.com/*`: `sites/naver-entertain.js` (isolated world only, no `-page.js`, no
+host permission), with `shared/naver.js` before it. The desktop `entertain.naver.com` answers HTTP 307 to the mobile
+site, so the browser never stays on it and the manifest does not match it. Scope: **photos only**, one button per
+picture, one picture per click. Everything needed is already in the page: no request, no new tab, no prefetching.
+Researched 2026-11-07; details in agentic-config `research/naver-entertain-media-downloader.md`.
+
+### Page kinds and buttons
+
+The script does nothing unless the page has the article component (`[class*="Article_comp_news_article"]` or
+`._article_body`) or the viewer's fotorama stage (`.fotorama__stage`). Class names are CSS-module hashes that change per
+build, so they are matched on their prefix. Settings → Enabled websites uses the id `naver-entertain`.
+
+- **Article** `/home/article/<oid>/<aid>` and **photo article** `/photo/article/<oid>/<aid>` (`/article/<oid>/<aid>`
+  redirects to the first). One button `image` (`.md-download-btn[data-md-kind="image"]`) per
+  `[class*="ArticleImage_article_image"] img` inside the article body, placed in the `ArticleImage_image_wrap` span.
+  Thumbnails of related lists are not in the article component and get no button. The pictures already carry a real
+  `src`; a `MutationObserver` (debounced by a timer, not requestAnimationFrame) catches late hydration and URL changes.
+- **Photo viewer** `/entertain?id=…&imgId=…&oid=…&aid=…#main/<imgId>` (fotorama slider, a feed of unrelated photo
+  articles). One button `viewer` on the stage; it acts on the picture
+  (`.fotorama__stage__frame.fotorama__active img.fotorama__img`) that is active **at click time**. Slides change
+  without navigation, so the script follows `hashchange`, DOM and class changes; the button is hidden while the active
+  picture is not a JPG/PNG.
+- Not supported: the photo list pages (`/photo`), and the newer album viewer `/photo/viewer?albumId=…&photoId=…` (no
+  fotorama, no article component; seen 2026-11-07 when opening a list item, not investigated).
+
+### Press name (filename `username`)
+
+The press name with **all** whitespace removed (spaces, NBSP, ideographic space and zero-width characters: they are
+removed in this value only, because `sanitize` would turn zero-width characters back into spaces), Hangul kept:
+e.g. `가나연예`, `ABC뉴스`. Never the oid, the ename or a host.
+
+- Article and photo article: first Naver's fixed Korean name `officeInfo.hname` from the page data (Next.js RSC payload,
+  read only when `officeInfo.officeId` equals the address's oid). Fallback: the press logo's `alt`
+  (`a[class^="PressLogo_"] img`, rendered after hydration, read at click time, spaces removed). The logo alt is not
+  constant for one outlet (Korean on one article, English with stray spaces on another), which is why `hname` is first.
+- Viewer: the `#footer` text line `<name> | YYYY.MM.DD. 오전|오후 H:MM`, spaces removed. Unverified: whether the footer
+  name equals `hname` for every outlet (it did for the outlets checked).
+- Otherwise the click fails with "Post lookup failed: no press name on this page".
+
+### Dates (filename `createdDate`)
+
+The **publish time** (입력), Korean time (UTC+9) turned into UTC in the file name (`MDSettings.formatDate`), `takenAt` =
+ms / 1000 for the exiftool helper. A 2026.09.05. 오후 3:44 article becomes `2026-09-05T064400.000Z`. Never
+`modifyDatetime`, the `수정` item, `MDSettings.postTime` or the description date.
+
+- Article: first the page data. The script reads every `self.__next_f.push([1,"…"])` in `document.scripts`, decodes
+  each string literal with `JSON.parse` (no eval, no MAIN-world script: page globals are not visible) and takes
+  `articleInfo.article.serviceDatetime` (`YYYY-MM-DD HH:mm:ss`, second precision) when the article's `articleId` and
+  `officeId` equal the address's aid and oid. Fallback: the `[class*="DateInfo_info_item"]` whose
+  `[class*="DateInfo_term"]` is `입력`, text `2026.09.05. 오후 3:44` (minute precision; 오전 12 is 00, 오후 12 is 12).
+  If neither works: "Post date lookup failed: …".
+- Viewer: the date of the footer line, minute precision (seconds 00), so the same picture saved from the viewer and from
+  its article differs by the seconds.
+
+### Picking the file
+
+The picture's `src`, rewritten with `new URL`: the query and hash are removed (no `type` serves the original file) and
+the host is kept as given (`imgnews`, `mimgnews` and `ssl.pstatic.net/mimgnews/…` all occur). Only `https:` and hosts
+`pstatic.net` or `*.pstatic.net` are accepted. The blog's host swap and `w3840` are **not** used here. The extension is the
+last path segment's extension, lowercased, `jpeg` → `jpg`; **only `.jpg` and `.png`** are supported, other pictures get no
+button. No Referer is needed and no host permission (extension downloads are not CORS-limited).
+
+`_<n>` is **always** added:
+
+- Article and photo article: the 0-based position of the picture among the article-body pictures, in document order.
+- Viewer: the file number of the image URL `/image/origin/<oid>/<yyyy>/<mm>/<dd>/<n>.jpg` (each slide is another
+  article, so there is no position). No number: "Picture lookup failed: …".
+
+After a slide change the hash and footer update first and the picture follows (~100-150 ms, longer on a slow connection).
+The viewer therefore compares the footer's article link (office id, and article id = the picture's file number) with the
+active picture. While they disagree it reads again every 100 ms for up to 2 s (the button stays busy and the toast says
+"Downloading…") and stops as soon as they agree. If the picture or the footer changed during the wait and they still
+disagree, it refuses ("Picture lookup failed: the slide is still loading, try again."), so the old picture is never saved
+with the new slide's date. A pair that did not change at all for the whole 2 s and still disagrees (an outlet whose
+article id is not the file number) is accepted.
+
+File name examples: `entertain.naver.com/<press>_--naver--_2026-09-05T064400.000Z_0.jpg` (article),
+`…_123456.jpg` (viewer).
+
+### When Naver Entertain changes something
+
+Run [`tools/diagnose-naver-entertain.js`](tools/diagnose-naver-entertain.js) on an article, photo article or viewer page
+(F12 → Console → paste). It makes no request except an optional one-byte ranged GET. It reports the page kind, oid/aid,
+the press-name source and value, the date source with the raw value and UTC, the picture count, and the first picture's
+`src`, rewritten URL and extension (viewer: the active image, its file number, and the footer name and date). Its helpers
+are copies of `sites/naver-entertain.js` and `shared/naver.js`; keep them in sync. Unit tests:
+`node --test tools/tests/naver-entertain.test.js tools/tests/naver-shared.test.js`.
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| No buttons on an article | `Article_comp_news_article`, `ArticleImage_article_image` or `ArticleImage_image_wrap` renamed | Inspect the page; update `BODY`, `BODY_IMAGES` and the wrapper selector |
+| No button in the viewer | `.fotorama__stage` or the active-slide classes renamed, or the active picture is not JPG/PNG | Inspect the stage; update `ACTIVE_IMAGE` |
+| "Post lookup failed: no press name on this page" | `officeInfo.hname` missing or its `officeId` differs, the logo selector changed, or the footer line changed | Run the diagnose script; check the "Press name" rows |
+| "Post date lookup failed" | `serviceDatetime` and the `DateInfo_` 입력 text both changed | Run the diagnose script, find the new source |
+| "Picture lookup failed: … Naver's image server" | Pictures moved off `*.pstatic.net` | Check the `src`; update `rewriteImageUrl` |
+| "Picture lookup failed: … file number" | The viewer's image path changed | Check the active image's `src` |
+| Download fails (404 / HTML file) | A query-less URL no longer serves the original | Check with a ranged `curl` |
+
+### Future improvements
+
+Unsupported today: videos, animated GIFs and other media (none seen in the sampled pages; Naver articles may embed video
+players), the photo list pages, the album viewer `/photo/viewer?albumId=…`, and uploads that are not JPG or PNG. Viewer
+dates have minute precision only. Whether `hname` equals the footer name for every outlet, and `hname` after a
+client-side route change, are unverified.

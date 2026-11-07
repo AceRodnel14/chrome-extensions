@@ -7,7 +7,7 @@ Microsoft Edge and Chromium, on Windows and Linux.
 
 | Extension | What it does | Details |
 |---|---|---|
-| [Media Downloader](media-downloader/) | Adds download buttons to Instagram (posts, carousels, reels, stories, highlights, profile pictures), X/Twitter (photos, videos and GIFs in posts, profile pictures, banners) YouTube posts (images on a channel's Posts tab and post pages, channel avatar and banner; not videos) and Reddit (images, galleries, GIFs and videos hosted on Reddit, and RedGifs clips linked from posts) and saves the original-resolution files. Also sorts every other download into a folder named after its website, and can write the post date into the files with exiftool. | [README](media-downloader/README.md) |
+| [Media Downloader](media-downloader/) | Adds download buttons to Instagram (posts, carousels, reels, stories, highlights, profile pictures), X/Twitter (photos, videos and GIFs in posts, profile pictures, banners) YouTube posts (images on a channel's Posts tab and post pages, channel avatar and banner; not videos) Reddit (images, galleries, GIFs and videos hosted on Reddit, and RedGifs clips linked from posts) RedNote (photos, videos and live photos in a user's posts, profile pictures) Naver Blog (the pictures of a blog post, one button per picture) and Naver Entertain (the pictures of a news article or photo article, one button per picture, and the photo viewer) and saves the original-resolution files. Also sorts every other download into a folder named after its website, and can write the post date into the files with exiftool. | [README](media-downloader/README.md) |
 | [Download Organizer](download-organizer/) | Runs in the background and sorts downloaded files into folders based on their source websites. | [README](download-organizer/README.md) |
 | [Passman](passman/) | Autofills logins from your self-hosted passman password manager. Reuses your passman web session (never your login password), shows a button in login fields on matching sites and a toolbar popup with the entries for the current tab. Contacts passman only when you act. Can export a backup from its options. Does not save new passwords. | [README](passman/README.md) |
 
@@ -22,15 +22,16 @@ Replaces the earlier "MODIFIED IMDownloader" in this repository, which was remov
 Media Downloader is a fork of [IMDownloader](https://chromewebstore.google.com/detail/imdownloader-download-sto/fkilgeompmipodhkdmafejpfgnfbjmkk)
 4.0.3 by Faruk Cepni, rewritten from scratch: Instagram had retired the endpoints IMDownloader used for stories and
 highlights, and its download buttons no longer appeared in several places. The rewrite has no analytics, remote
-configuration or subscription check. Since then it has added X (Twitter), YouTube posts and Reddit.
+configuration or subscription check. Since then it has added X (Twitter), YouTube posts, Reddit, RedNote, Naver Blog and Naver Entertain.
 
 - Settings: filename pattern (`username`, `createdDate`, `website`), save location, file size, enabled websites,
-  Diagnose mode.
+  Diagnose mode, and "Prefer description YYMMDD date" (Instagram, Reddit and X: use a single `YYMMDD` in the caption /
+  Reddit title / post text as the post date).
 - Optional exiftool helper (`native/`): writes the post date into photos and videos. Needs Python 3 and exiftool,
   plus a one-time `install.bat` (Windows) or `install.sh` (Linux).
 - When a site changes something: [context.md](media-downloader/context.md) has a troubleshooting guide per site,
   [smoke-test.md](media-downloader/smoke-test.md) the checklist, and `tools/` a health check per site
-  (`diagnose.js` for Instagram, `diagnose-x.js`, `diagnose-youtube.js`, `diagnose-reddit.js`), plus `tools/smoke/smoke.py`,
+  (`diagnose.js` for Instagram, `diagnose-x.js`, `diagnose-youtube.js`, `diagnose-reddit.js`, `diagnose-rednote.js`, `diagnose-naver-blog.js`, `diagnose-naver-entertain.js`), plus `tools/smoke/smoke.py`,
   an automated smoke test that downloads from the pages listed in `cases.toml` and logs the results.
 
 Its extension ID is fixed (`cedeopcefllcjmmkopihgkkngehmfmmk`) on every computer and browser.

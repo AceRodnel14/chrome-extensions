@@ -37,6 +37,7 @@
     return {
       id: tweet.id_str,
       createdAt: tweet.created_at,
+      text: tweet.note_tweet?.note_tweet_results?.result?.text || tweet.full_text || tweet.text || "",
       username: asUser(tweet.user)?.screen_name || "",
       media,
       quoted: !media.length && quoted ? serialize(quoted) : null,

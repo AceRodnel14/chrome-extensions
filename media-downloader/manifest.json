@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "mediadownloader",
-  "version": "0.2.3",
-  "description": "Download original-resolution images and videos with one click from Instagram, X (Twitter), YouTube posts and Reddit.",
+  "version": "0.3.0",
+  "description": "Download original-resolution images and videos with one click from Instagram, X (Twitter), YouTube posts, Reddit, RedNote, Naver Blog and Naver Entertain.",
   "permissions": [
     "downloads",
     "storage",
@@ -14,7 +14,9 @@
     "https://*.twitter.com/*",
     "https://www.youtube.com/*",
     "https://www.reddit.com/*",
-    "https://api.redgifs.com/*"
+    "https://api.redgifs.com/*",
+    "https://www.rednote.com/*",
+    "https://ci.xiaohongshu.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -112,6 +114,43 @@
         "shared/settings.js",
         "shared/report.js",
         "sites/reddit.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.rednote.com/*"
+      ],
+      "js": [
+        "shared/settings.js",
+        "shared/report.js",
+        "sites/rednote.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://blog.naver.com/*",
+        "https://m.blog.naver.com/*"
+      ],
+      "js": [
+        "shared/settings.js",
+        "shared/report.js",
+        "shared/naver.js",
+        "sites/naver-blog.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://m.entertain.naver.com/*"
+      ],
+      "js": [
+        "shared/settings.js",
+        "shared/report.js",
+        "shared/naver.js",
+        "sites/naver-entertain.js"
       ],
       "run_at": "document_idle"
     }

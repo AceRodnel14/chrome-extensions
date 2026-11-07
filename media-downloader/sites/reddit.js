@@ -144,7 +144,9 @@
     if (post.crosspost_parent_list?.length) post = post.crosspost_parent_list[0];
     const { files, skipped } = await mediaOf(post, target.el);
     if (!files.length) throw new Error("This post has no photos or videos hosted on Reddit.");
-    const takenAt = Math.floor(post.created_utc) || null;
+    const realTime = Math.floor(post.created_utc) || null;
+    const takenAt = MDSettings.postTime(realTime, post.title, settings);
+    if (takenAt !== realTime) diag("using the YYMMDD date from the title", new Date(takenAt * 1000).toISOString());
     const vars = {
       username: subreddit || post.subreddit || post.author || "",
       createdDate: MDSettings.formatDate(takenAt ? takenAt * 1000 : null),

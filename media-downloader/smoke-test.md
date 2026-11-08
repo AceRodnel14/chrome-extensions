@@ -107,7 +107,7 @@ Files go to `Downloads\youtube.com\`, named `<handle>_--youtube--_<date>…`. Th
 |---|---|---|---|
 | Y1 | Channel → Posts tab, post with several images | Click the circle-arrow after Comments | One file per image, `_0` …, the full upload (e.g. 3072×4096), **not** the square crop shown |
 | Y2 | Post with one image | Click the button | One file, no `_0`; a PNG upload is saved as `.png` |
-| Y3 | Any of these | Compare the filename's date with the post's "x days ago" | The exact publish time in UTC (open the post: same day) |
+| Y3 | Any of these | Compare the filename's date with the post's "x days ago" | The exact publish time in your time zone with its offset, e.g. `+0800` (open the post: same day) |
 | Y4 | Text post, text-only poll, post sharing a video | Look at the toolbar | No download button |
 | Y5 | A post's own page (click its time, `/post/<id>`) | Click the button | Same as Y1/Y2 |
 | Y6 | Channel avatar | Click the badge on the avatar | `<handle>_--youtube--_profile.jpg` at full size (e.g. 2152×2152) |
@@ -157,8 +157,8 @@ RedNote ask for a security check.
 ## Naver Blog: buttons and downloads
 
 No login needed for public posts. Files go to `Downloads\blog.naver.com\`, named
-`<blogId>_--naver--_<date in UTC>_<n>.jpg`, where `<n>` is the picture's 0-based position in the post (always present).
-The post's own date is shown in Korean time (UTC+9), the file name in UTC. Health check:
+`<blogId>_--naver--_<local date with offset>_<n>.jpg`, where `<n>` is the picture's 0-based position in the post (always present).
+The post's own date is shown in Korean time (UTC+9), the file name in your time zone. Health check:
 [`tools/diagnose-naver-blog.js`](tools/diagnose-naver-blog.js). One click saves one picture; the unit tests are
 `node --test media-downloader/tools/tests/naver-blog.test.js`.
 
@@ -166,7 +166,7 @@ The post's own date is shown in Korean time (UTC+9), the file name in UTC. Healt
 |---|---|---|---|
 | NB1 | A desktop post (`blog.naver.com/<blogId>/<logNo>`) | Look at the pictures | A button on every JPG/PNG picture inside the post frame; none in the page's outer frame or on the blog's post list |
 | NB2 | Same post | Click the button on the 4th picture | One file, `<blogId>_--naver--_<date>_3.jpg`; Naver's image viewer does **not** open; the toast says "Saved …" |
-| NB3 | Same post | Compare the date in the name with the date under the title | Same moment: the title shows KST, the name UTC (14:00 KST = 05:00 UTC; a KST morning time is the previous UTC day) |
+| NB3 | Same post | Compare the date in the name with the date under the title | Same moment: the title shows KST, the name your zone (14:00 KST = 13:00 in GMT+8, `+0800`) |
 | NB4 | Same post | Open the file | Full size (up to 3840 px wide), not a thumbnail; a picture uploaded wider than 3840 px is scaled down |
 | NB5 | A post with a single picture | Click its button | Name ends with `_0` |
 | NB6 | A mobile post (`m.blog.naver.com/<blogId>/<logNo>`) | Click a button | Same name pattern and the same date as on desktop; same bytes as the desktop file for that picture |
@@ -178,9 +178,9 @@ The post's own date is shown in Korean time (UTC+9), the file name in UTC. Healt
 ## Naver Entertain: buttons and downloads
 
 No login needed. Use the mobile site `m.entertain.naver.com` (the desktop host redirects there). Files go to
-`Downloads\entertain.naver.com\`, named `<press name>_--naver--_<date in UTC>_<n>.jpg`: the press name is Korean without
+`Downloads\entertain.naver.com\`, named `<press name>_--naver--_<local date with offset>_<n>.jpg`: the press name is Korean without
 spaces; `<n>` is the picture's 0-based position in the article (always present), in the viewer the picture's file number.
-The article shows its time in Korean time (UTC+9), the file name UTC. Health check:
+The article shows its time in Korean time (UTC+9), the file name in your time zone. Health check:
 [`tools/diagnose-naver-entertain.js`](tools/diagnose-naver-entertain.js). One click saves one picture; the unit tests are
 `node --test media-downloader/tools/tests/naver-entertain.test.js media-downloader/tools/tests/naver-shared.test.js`.
 
@@ -188,7 +188,7 @@ The article shows its time in Korean time (UTC+9), the file name UTC. Health che
 |---|---|---|---|
 | NE1 | A news article (`m.entertain.naver.com/home/article/<oid>/<aid>`) with several pictures | Look at the article | A button on every JPG/PNG picture of the article body; none on the thumbnails of the related lists |
 | NE2 | Same article | Click the button on the 2nd picture | One file, `<press>_--naver--_<date>_1.jpg`; the toast says "Saved …" |
-| NE3 | Same article | Compare the date in the name with the 입력 line under the title | Same moment: the page shows KST, the name UTC (오후 3:44 = 15:44 KST = 06:44 UTC; 오전 12:xx is 00:xx KST, the previous UTC day). The 수정 time is never used |
+| NE3 | Same article | Compare the date in the name with the 입력 line under the title | Same moment: the page shows KST, the name your zone (오후 3:44 = 15:44 KST = 14:44 in GMT+8; 오전 12:xx is 00:xx KST, the previous day in GMT+8). The 수정 time is never used |
 | NE4 | Same article | Open the file | Full size, not a 647 px thumbnail |
 | NE5 | A photo article (`/photo/article/<oid>/<aid>`) | Click its button | Name ends with `_0`; same press name and date rules |
 | NE6 | The photo viewer (`/entertain?…#main/<imgId>`) | Look at the page | One button on the picture, not one per slide |
@@ -209,10 +209,10 @@ The article shows its time in Korean time (UTC+9), the file name UTC. Health che
 | 20 | Turn Instagram off under Enabled websites, Save | All buttons disappear from open Instagram tabs immediately; turn it back on and they return. Same for X (Twitter), YouTube (posts), Reddit and RedNote |
 | 21 | Turn on Diagnose mode, Save, download anything | Console (filter `mediadownloader`) shows `[mediadownloader:diagnose]` lines for each step; turn it off again |
 | 21a | Tick **Prefer description YYMMDD date**, Save, reload Settings, then reload the extension | Still ticked after both (settings survive updates) |
-| 21b | With it on, download an Instagram post or reel whose caption has one `YYMMDD` (e.g. `261024 …`) | `createdDate` = that date at `T080000.000Z`; every carousel file the same |
-| 21c | With it on, download a Reddit post whose title has one `YYMMDD`, and an X post whose text has one | Same: the title's / post text's date at `T080000.000Z` |
+| 21b | With it on, download an Instagram post or reel whose caption has one `YYMMDD` (e.g. `261024 …`) | `createdDate` = that date at 08:00 UTC in your zone (`T160000+0800` in GMT+8); every carousel file the same |
+| 21c | With it on, download a Reddit post whose title has one `YYMMDD`, and an X post whose text has one | Same: the title's / post text's date at 08:00 UTC in your zone (`T160000+0800` in GMT+8) |
 | 21d | With it on, download a post with no `YYMMDD` (or two of them), and a YouTube post | The real publish time, as with the setting off (YouTube never uses the option) |
-| 21e | With exiftool on, check a file from 21b | DateTimeOriginal = `YYYY:MM:DD 08:00:00`, matching the filename |
+| 21e | With exiftool on, check a file from 21b | DateTimeOriginal = that date at 08:00 UTC in your zone (`YYYY:MM:DD 16:00:00` in GMT+8, `OffsetTime*` `+08:00`), the same time as the filename |
 | 22 | Put every setting back to the defaults above | |
 
 ## exiftool (only if you use it)
@@ -224,7 +224,7 @@ Prerequisite: helper installed (`native/install.bat` or `native/install.sh`), Ch
 | E1 | Settings → exiftool folder: type a wrong folder, click Test | Red "folder does not exist" / "No exiftool found in …" |
 | E2 | Enter the right folder, click Test | "exiftool 13.xx found (…)" |
 | E3 | Tick "Write the post date…", Save; download a carousel with a video | Toast "Downloading N files… The dates are set when they are done." then green "Saved N of N files. Dates set on N." |
-| E4 | Check a downloaded photo and the video: `exiftool -G1 -a -time:all <file>` (or Windows: right-click → Properties → Details → "Date taken" / "Media created") | Photo: dates = the filename's `createdDate` converted to your time zone, `OffsetTime*` = your offset. Video: QuickTime, Track and Media Create/Modify dates = the filename's UTC time, none `0000:00:00`. Both: File Modification Date = the same moment |
+| E4 | Check a downloaded photo and the video: `exiftool -G1 -a -time:all <file>` (or Windows: right-click → Properties → Details → "Date taken" / "Media created") | Photo: dates = the filename's `createdDate` (same local time), `OffsetTime*` = your offset. Video: QuickTime, Track and Media Create/Modify dates = the same moment as the filename, stored in UTC, none `0000:00:00`. Both: File Modification Date = the same moment |
 | E5 | Download a story slide | "Saved … Date set."; date = the slide's own post time |
 | E6 | Download a profile picture | Plain green "Saved …profile.jpg." with no date part (profile pictures have no post date) |
 | E7 | Uninstall the helper (`install.bat uninstall` / `install.sh --uninstall`), restart Chrome, download | File saved; amber toast "Saved … Dates set on 0 of 1; not set: …: the exiftool helper is not installed …". Reinstall afterwards |

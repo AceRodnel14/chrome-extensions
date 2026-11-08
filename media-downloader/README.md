@@ -20,13 +20,15 @@ Supported websites:
   profile picture. Files are named after the profile's **rednote ID**.
 - **Naver Blog** (`blog.naver.com` and `m.blog.naver.com`), on a post's page: every picture (JPG and PNG, up to
   3840 px wide) of posts written in Naver's current editor, one button per picture, one picture per click. Files are
-  named after the **blog id** from the address and the post's publish time (in UTC), plus the picture's position
-  in the post. Not supported: GIFs, stickers, videos and old posts written in the previous editor (SmartEditor 2).
+  named after the **blog id** from the address and the post's publish time (in your computer's time zone, with its
+  UTC offset), plus the picture's position in the post. Not supported: GIFs, stickers, videos and old posts written
+  in the previous editor (SmartEditor 2).
 - **Naver Entertain** (`m.entertain.naver.com`; the desktop `entertain.naver.com` redirects there), on a news article, a
   photo article and the photo viewer: every picture (JPG and PNG, original size) of the article, one button per
   picture, and in the viewer one button for the picture on screen. Files are named after the **press name** (Korean,
-  without spaces) and the article's publish time (in UTC), plus the picture's position in the article (in the viewer:
-  the picture's file number). Not supported: GIFs, videos and other media.
+  without spaces) and the article's publish time (in your computer's time zone, with its UTC offset), plus the
+  picture's position in the article (in the viewer: the picture's file number). Not supported: GIFs, videos and
+  other media.
 
 ## Origin
 
@@ -113,7 +115,7 @@ tray icon → Exit.
 Download any post: the message changes from "Downloading N files… The dates are set when they are done." to
 "Saved N of N files. Dates set on N." In Explorer,
 right-click a photo → Properties → Details → **Date taken** shows the post's date and time in your computer's time
-zone (the filename keeps the time in UTC). Videos get the same moment in all their date fields, and the file's
+zone, the same time as in the filename (since 0.3.1). Videos get the same moment in all their date fields, and the file's
 "Date modified" is the post time too, so Immich and photo apps sort them on the right day.
 
 ### Linux (Debian, Ubuntu and other Debian-based)
@@ -200,6 +202,9 @@ to load the repository, or you loaded the repository's old `Media Downloader` fo
 
 - Settings → **Enabled websites**: newly supported sites are switched on by default; switch off any you do not want.
 - Your settings are kept, including **Prefer description YYMMDD date** (new in 0.3.0, off by default). New settings start at their default.
+- From 0.3.1 filenames show the post time in your computer's time zone with its UTC offset, e.g. `…_2026-11-08T134711+0800_2.jpg`
+  instead of `…_2026-11-08T054711.000Z_2.jpg`. Files saved earlier keep their UTC names (ending in `Z`), so sorting old and
+  new files by name, or files saved across a daylight-saving or time-zone change, is no longer strictly by time.
 - Optional: run the smoke test's health checks (`tools/diagnose*.js`), or the automated run `tools/smoke/smoke.py`, to confirm everything works.
 - The exiftool helper needs nothing: the browser starts it fresh for every download, so changes to it apply at once
   (if the browser loads a copy of the folder, copy `native/` along with the rest).
@@ -223,13 +228,13 @@ to load the repository, or you loaded the repository's old `Media Downloader` fo
 | Test: "… it needs Perl and perl is not installed" | Very unusual (Perl is part of every Debian-based system): `sudo apt install perl-base`. On Windows, use the `exiftool.exe` download instead of the Perl `exiftool` script |
 | install.bat: "Python 3 was not found" | Install Python (step 3a) and run `install.bat` again |
 | Test: "the exiftool helper exited without an answer" | Python crashed before answering: in Command Prompt run `py -3 --version` (Linux: `python3 --version`) to check Python itself works |
-| Dates differ from the filename by some hours | Expected: the filename is in UTC, the dates in the files are in your computer's time zone (with the offset stored, so the moment is the same) |
+| Dates differ from the filename by some hours | Files saved before 0.3.1 have the time in UTC in their name (ending in `Z`); the dates in the files are in your computer's time zone (with the offset stored, so the moment is the same). From 0.3.1 the name shows your local time and offset (e.g. `+0800`) too. If the browser and the exiftool helper run in different time zones (e.g. Chrome in WSL with another `TZ`), the two can differ |
 
 ## Dates from the description (optional)
 
 Settings → **Prefer description YYMMDD date** (off by default). Fan accounts often write the event date in the
 caption, e.g. `261024 Yujin - Fansign Event`. With this on, if the description holds **exactly one** `YYMMDD` date,
-that date at 08:00 UTC is used instead of the upload time, for the filename's `createdDate` and (with exiftool) the
+that date at 08:00 UTC (16:00 in GMT+8, shown in your zone in the filename) is used instead of the upload time, for the filename's `createdDate` and (with exiftool) the
 photo and video dates of every file in the post. No date, or more than one: the upload time is used as before.
 The description is the caption on Instagram, the post **title** on Reddit, and the post text on X. YouTube posts,
 RedNote, Naver Blog and Naver Entertain posts (and any site added later) always use the upload time.

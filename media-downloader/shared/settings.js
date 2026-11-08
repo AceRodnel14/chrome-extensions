@@ -57,9 +57,17 @@
     return chrome.storage.sync.set(settings);
   }
 
-  // e.g. 2026-05-29T12:42:41.000Z -> 2026-05-29T124241.000Z (colons are not allowed in filenames)
+  // Local time with the UTC offset, no colons (not allowed in filenames), seconds truncated:
+  // 2026-11-08T05:47:11Z in GMT+8 -> 2026-11-08T134711+0800
   function formatDate(date) {
-    return date ? new Date(date).toISOString().replaceAll(":", "") : "";
+    if (!date) return "";
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    const off = -d.getTimezoneOffset();
+    const abs = Math.abs(off);
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}` +
+      `${off >= 0 ? "+" : "-"}${p(Math.floor(abs / 60))}${p(abs % 60)}`;
   }
 
   function sanitize(name) {

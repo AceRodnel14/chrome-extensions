@@ -108,7 +108,9 @@ Tags and value (since 0.3.0), per file in the argument file: `-m -overwrite_orig
 **computer's local time with its offset**, e.g. `2026:11:07 16:00:00+08:00` for 08:00 UTC in the Philippines; OFF is
 that offset (`+08:00`), taken for the post's own date so daylight saving is right (`local_stamp` in the helper).
 `-api QuickTimeUTC=1` is repeated in every block: exiftool resets options at each `-execute`, so on the command line it
-would apply to the first file only. The filename's `createdDate` stays in UTC.
+would apply to the first file only. Since 0.3.1 the filename's `createdDate` shows the same local time and offset
+(`MDSettings.formatDate`, e.g. `2026-11-07T160000+0800`). The extension (browser) and the helper (Python) each use their
+own zone: on one PC they agree, but a WSL Chrome with a different `TZ` from the Windows Python would not.
 
 - Photos (JPEG, HEIC, WebP, PNG): the EXIF/XMP dates show the local clock time, with `OffsetTime*` saying which zone.
 - MP4/MOV: `QuickTimeUTC` makes exiftool convert STAMP to UTC for the movie, track and media dates (UTC by standard),
@@ -192,7 +194,7 @@ posts' shortcodes carry a 28-character suffix that is dropped first.
   **Medium** = about a quarter of the way down the list. Highlight `video_versions` have no `width`, so the first is used.
 - Extension from the CDN URL path (`.jpg`, `.mp4`, `.webp`, `.heic`), else `mp4`/`jpg` by type.
 - `username` = the media owner (for collab posts that can differ from the profile being viewed); `createdDate` =
-  `taken_at` as ISO without colons (`2026-10-24T112727.000Z`); profile pictures use `profile`.
+  `taken_at` in local time with its offset (`2026-10-24T192727+0800` in GMT+8); profile pictures use `profile`.
 
 ### Where the buttons go and how each finds its media
 
@@ -432,7 +434,7 @@ removed again when you leave the posts pages. Videos and Shorts are never touche
 | **Full image list** | The same post page's `ytInitialData`: the renderer whose `postId` matches → `backstageAttachment` | Posts shown in shelves (a channel's Home tab) only carry their **first** image (`backstageImageRenderer` instead of `postMultiImageRenderer`: 1 of 4 images on @Yujinators, 2026-10-25), so the post page's list is used when it has at least as many |
 | **Publish time** | `GET /post/<postId>` (the post's own page, ~860 KB, about 1 s) → `"publishDate":"2026-10-24T02:00:00.189741-07:00"` in `ytInitialData.microformat.microformatDataRenderer`, same value as `datePublished` in the page's JSON-LD | The feed only has relative text ("7 hours ago", "1 month ago"), which is useless for a filename. Cached per page. |
 
-`createdDate` = the publish time in UTC (`2026-10-24T090000.189Z`); `takenAt` for exiftool = the same in Unix seconds.
+`createdDate` = the publish time in local time with its offset (`2026-10-24T170000+0800` in GMT+8); `takenAt` for exiftool = the same in Unix seconds.
 
 ### Picking the file
 
@@ -537,7 +539,7 @@ cropped (`crop=smart`) and their format depends on what the browser accepts, so 
 Original = highest bitrate (e.g. 720×1280 or 1082p), Small = lowest, Medium = the middle one.
 
 `username` = the **subreddit** of the clicked post (`subreddit`, e.g. `Gaeul_IVE`), not the poster; for a crosspost
-that is the subreddit it was shared to, not the original's; `createdDate` = `created_utc` (whole seconds, so `.000Z`); `website` = `reddit`.
+that is the subreddit it was shared to, not the original's; `createdDate` = `created_utc` in local time with its offset; `website` = `reddit`.
 
 ### RedGifs
 
@@ -634,7 +636,7 @@ permission `ci.xiaohongshu.com`): the Content-Type gives the extension (JPEG, HE
 files need no cookies or referer, so `chrome.downloads` saves them directly. The File size setting does not apply:
 always the original.
 
-`username` = rednote ID; `createdDate` = the note's `time` (ms) in UTC; `takenAt` = the same in seconds; `website` =
+`username` = rednote ID; `createdDate` = the note's `time` (ms) in local time with its offset; `takenAt` = the same in seconds; `website` =
 `rednote`; folder `rednote.com`. Profile pictures use `profile`. The description-date option does not apply.
 
 ### When RedNote changes something
@@ -691,9 +693,9 @@ The post's **publish time**, in this order:
 3. Fallback: the visible text `YYYY. M. D. HH:mm` (`.se_publishDate` on desktop, `.blog_date .txt` on mobile), which is
    Korean time (UTC+9) and parsed as `+09:00` (minute precision).
 
-If none works the click fails with "Post date lookup failed: …"; a date is never guessed. The file name uses **UTC**
-like the other sites (`MDSettings.formatDate(ms)`), so a post shown as `2023. 3. 30. 14:00` becomes
-`2023-03-30T050012.063Z`, and a KST morning time falls on the previous UTC day. `takenAt` = ms / 1000 for the exiftool
+If none works the click fails with "Post date lookup failed: …"; a date is never guessed. The file name uses **local
+time with its offset** like the other sites (`MDSettings.formatDate(ms)`), so a post shown as `2023. 3. 30. 14:00` becomes
+`2023-03-30T130012+0800` in GMT+8, and a KST morning time can fall on the previous local day. `takenAt` = ms / 1000 for the exiftool
 helper. The description-date option does not apply: `MDSettings.postTime` and `descriptionDate` are never called.
 
 ### Picking the file
@@ -714,7 +716,7 @@ and `searchParams` `type=w3840`. The extension is the last path segment's extens
 File name: `username` = blog id, `createdDate` as above, `website` = `naver` (`MDSettings.websiteName` gives `naver`
 for both hosts, and will for every future Naver site), folder `blog.naver.com`. The picture's 0-based position among
 all `a.__se_image_link` of the post, `_<n>`, is **always** added, even when the post has one picture (one click saves one
-file, so the number keeps files of the same post apart): `blog.naver.com/<blogId>_--naver--_2023-03-30T050012.063Z_3.jpg`.
+file, so the number keeps files of the same post apart): `blog.naver.com/<blogId>_--naver--_2023-03-30T130012+0800_3.jpg`.
 
 ### When Naver changes something
 
@@ -781,8 +783,8 @@ e.g. `가나연예`, `ABC뉴스`. Never the oid, the ename or a host.
 
 ### Dates (filename `createdDate`)
 
-The **publish time** (입력), Korean time (UTC+9) turned into UTC in the file name (`MDSettings.formatDate`), `takenAt` =
-ms / 1000 for the exiftool helper. A 2026.09.05. 오후 3:44 article becomes `2026-09-05T064400.000Z`. Never
+The **publish time** (입력), Korean time (UTC+9) turned into your local time in the file name (`MDSettings.formatDate`), `takenAt` =
+ms / 1000 for the exiftool helper. A 2026.09.05. 오후 3:44 article becomes `2026-09-05T144400+0800` in GMT+8. Never
 `modifyDatetime`, the `수정` item, `MDSettings.postTime` or the description date.
 
 - Article: first the page data. The script reads every `self.__next_f.push([1,"…"])` in `document.scripts`, decodes
@@ -816,7 +818,7 @@ disagree, it refuses ("Picture lookup failed: the slide is still loading, try ag
 with the new slide's date. A pair that did not change at all for the whole 2 s and still disagrees (an outlet whose
 article id is not the file number) is accepted.
 
-File name examples: `entertain.naver.com/<press>_--naver--_2026-09-05T064400.000Z_0.jpg` (article),
+File name examples: `entertain.naver.com/<press>_--naver--_2026-09-05T144400+0800_0.jpg` (article),
 `…_123456.jpg` (viewer).
 
 ### When Naver Entertain changes something

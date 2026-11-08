@@ -54,7 +54,7 @@
           <input type="checkbox" id="preferDescriptionDate">
           Prefer description YYMMDD date
         </label>
-        <p class="hint">If the caption (Instagram), title (Reddit) or post text (X) contains exactly one YYMMDD date, e.g. 261107, that date at 08:00 UTC is used as the post time in the filename and the photo/video date. Otherwise the real post time is used. YouTube, RedNote, Naver Blog and Naver Entertain posts always use the real post time.</p>
+        <p class="hint">If the caption (Instagram), title (Reddit) or post text (X) contains exactly one YYMMDD date, e.g. 261107, that date at 08:00 UTC is used as the post time in the filename (shown in your time zone) and the photo/video date. Otherwise the real post time is used. YouTube, RedNote, Naver Blog and Naver Entertain posts always use the real post time.</p>
       </section>
 
       <section>
@@ -66,7 +66,7 @@
         <input id="exiftoolDir" type="text" spellcheck="false" autocomplete="off" placeholder="Folder that contains exiftool, e.g. C:\Tools\exiftool or /home/me/Image-ExifTool-13.59">
         <p class="preview"><button type="button" id="exiftoolTest" class="secondary">Test</button> <span id="exiftoolStatus"></span></p>
         <div class="info">
-          <p>Sets <code>DateTimeOriginal</code>, <code>AllDates</code>, <code>CreationTime</code> and <code>ModifyDate</code> to the time the post was published (the <code>createdDate</code> in the filename, in UTC, without a time zone). Profile pictures and other downloads are left alone.</p>
+          <p>Sets <code>DateTimeOriginal</code>, <code>AllDates</code>, <code>CreationTime</code> and <code>ModifyDate</code> to the time the post was published (the <code>createdDate</code> in the filename, in your local time with its UTC offset). Profile pictures and other downloads are left alone.</p>
           <p>Chrome extensions cannot run programs themselves, so this needs the small helper in the extension's <code>native</code> folder installed once: <code>install.bat</code> on Windows (needs Python 3), <code>./install.sh</code> on Linux. Windows: use <code>exiftool.exe</code> (rename <code>exiftool(-k).exe</code>). Linux: the <code>Image-ExifTool</code> folder works as is (needs Perl).</p>
         </div>
       </section>

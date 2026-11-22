@@ -52,6 +52,9 @@ script can't: settings, stories/highlights, and checking that files open.
       should be PASS (or SKIP/INFO with a reason); the last console line lists any failed rows. A FAIL already tells you which part to look at.
 - [ ] Reload any Instagram, X, YouTube, Reddit, RedNote, Naver Blog and Naver Entertain tab that was open before the extension was (re)loaded.
 - [ ] Open the page console (F12) and filter on `mediadownloader` to spot errors.
+- [ ] For checks that need a specific post (stories, highlights, Naver pages, …): copy `test-links.csv.sample` in the
+      repo root to `test-links.csv` (`cp test-links.csv.sample test-links.csv`, or copy the file in Explorer) and fill
+      in the `url` column. `test-links.csv` is git-ignored; AI agents read it before asking you for specific pages.
 
 For every download below, check **three things**: the toast goes from "Downloading N files…" to a green "Saved N of N files …" (amber
 means every file saved but some dates could not be set; red means files are missing), the file really is in the
@@ -81,7 +84,9 @@ video plays).
 ## X (Twitter): buttons and downloads
 
 Logged in to X in this browser. Files go to `Downloads\x.com\`, named `<handle>_--x--_<date>…`. The X health check is
-[`tools/diagnose-x.js`](tools/diagnose-x.js) (paste on an X profile).
+[`tools/diagnose-x.js`](tools/diagnose-x.js) (paste on an X profile); its first row says whether X served its old or new
+web app. X switches between the two, even for the same account, so note which one the checks ran on; buttons should
+work in both.
 
 | # | Where | Do | Expect |
 |---|---|---|---|

@@ -205,6 +205,9 @@ to load the repository, or you loaded the repository's old `Media Downloader` fo
 - From 0.3.1 filenames show the post time in your computer's time zone with its UTC offset, e.g. `…_2026-11-08T134711+0800_2.jpg`
   instead of `…_2026-11-08T054711.000Z_2.jpg`. Files saved earlier keep their UTC names (ending in `Z`), so sorting old and
   new files by name, or files saved across a daylight-saving or time-zone change, is no longer strictly by time.
+- 0.3.2: X post buttons work again in X's new web app (X now serves an old and a new version of its site, even to
+  the same account; both are supported). In the new version each X download makes one lookup to X, so it can take a
+  moment longer to start.
 - Optional: run the smoke test's health checks (`tools/diagnose*.js`), or the automated run `tools/smoke/smoke.py`, to confirm everything works.
 - The exiftool helper needs nothing: the browser starts it fresh for every download, so changes to it apply at once
   (if the browser loads a copy of the folder, copy `native/` along with the rest).

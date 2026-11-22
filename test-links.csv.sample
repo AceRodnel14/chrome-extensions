@@ -1,0 +1,21 @@
+id,site,what to find,url,notes
+ig-story,instagram,A story (any account you follow; 3+ slides is best),,
+ig-highlight,instagram,A highlight on a profile (3+ slides),,
+ig-carousel-video,instagram,A post with several slides including at least one video,,
+ig-yymmdd,instagram,A post or reel whose caption has exactly one date like 261112,,
+rednote-photo,rednote,A photo post (solve the captcha in the test Chrome first),,
+rednote-video,rednote,A video post,,
+rednote-live,rednote,A live-photo post,,
+naver-blog-desktop,naver-blog,A blog.naver.com/<blogId>/<logNo> post with several JPG photos,,
+naver-blog-mobile,naver-blog,The same or another post on m.blog.naver.com/<blogId>/<logNo>,,
+naver-ent-article,naver-entertain,An m.entertain.naver.com/home/article/<oid>/<aid> article with photos,,
+naver-ent-photo-article,naver-entertain,An m.entertain.naver.com/photo/article/<oid>/<aid> photo article,,
+naver-ent-viewer,naver-entertain,The photo viewer URL (…#main/<imgId>) and how you opened it,,
+reddit-gif-video,reddit,A gif-as-video post (i.redd.it gif shown as video),,
+reddit-crosspost,reddit,A crosspost,,
+reddit-gallery,reddit,A gallery post (several images),,
+x-text,x,A text-only post (should show no button or a clear message),,tested after the X fix
+x-video,x,A post with a video,,tested after the X fix
+x-gif,x,A post with a GIF,,tested after the X fix
+x-quote,x,A quote post with media,,tested after the X fix
+x-yymmdd,x,A post whose text has exactly one date like 261112,,tested after the X fix

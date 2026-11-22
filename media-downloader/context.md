@@ -5,6 +5,7 @@ original files, and how the files are saved. Supported: Instagram, X (Twitter), 
 per new site.
 
 Last verified against the live sites: **2026-10-30** (Chrome 156): Instagram, X, YouTube posts and Reddit.
+X re-verified **2026-11-21** (Chrome 156) in both its old and new web app.
 
 ---
 
@@ -316,7 +317,24 @@ Content scripts on `https://*.x.com/*` and `https://*.twitter.com/*` (twitter.co
   an element, optionally with `data-md-want="<post id>"`; the helper looks the post up and writes its media to the
   element's `data-md-media` attribute as `{ source, id, createdAt, username, media: [{ type, url, variants }], quoted }`.
 
-Unlike Instagram, X already has every post on screen in the page, so **downloads normally make no API call at all**.
+Unlike Instagram, X already has every post on screen in the page, so **downloads normally make no API call at all**
+in the old web app.
+
+**Two web apps (since 2026-11).** X serves either its old React/Redux app (`responsive-web`) or a new one (`x-web`,
+Tailwind markup, script `abs.twimg.com/x-web/x-web/entry-client-*.js`). The same account can get either, even from
+one page load to the next, so both are supported side by side. Nothing switches between them: each rule below
+matches the old or the new markup.
+
+| | Old app | New app |
+|---|---|---|
+| Post element | `article[data-testid="tweet"]`; main post on a post page has `tabindex="-1"` | `<article>` without `data-testid`; the main post's wrapper (the article's parent) has `tabindex="-1"` |
+| Action bar | `[role="group"]` with `[data-testid="reply"]` and `like`/`unlike` | `[role="group"]` with `[data-engagement-action="reply"]` and `like` (`unlike` assumed for liked posts, not seen) |
+| Post id | Link around the post's `<time>` | No `<time>`: the reply control `a[href="/compose/post?in_reply_to=<id>"]`, else the bar's `/<user>/status/<id>/analytics` link |
+| Page data | Redux store and React props (below) | None reachable (no `#react-root`, no fiber keys): every click makes **one** API lookup |
+| `main.*.js` (queryId discovery) | Yes | No: the built-in queryId is used |
+
+A quoted post has only a plain `/<user>/status/<id>` link (no reply control, no analytics link), so it is never taken
+as the post's own id.
 
 ### Where the post data comes from
 
@@ -326,7 +344,7 @@ In this order (Diagnose mode logs which one answered):
 |---|---|---|
 | Redux store | Walk down the React tree from `#react-root` to the `<Provider>` whose props have `store.getState`; `getState().entities.tweets.entities[<id>]` | Posts are normalized: `user`, `retweeted_status`, `quoted_status` are ids, resolved through `entities.users.entities` / `entities.tweets.entities`. Used whenever the post id is known (grid tiles, photo viewer, any post with a timestamp link). |
 | React props | Walk up from the clicked element (`__reactFiber$…` → `.return`) to the first `memoizedProps.tweet` with an `id_str` | Same fields, but `user` etc. are full objects. Used when no id was found. |
-| GraphQL `TweetResultByRestId` | `GET /i/api/graphql/<queryId>/TweetResultByRestId?variables=…&features=…` | Only when the post is not in the page. See "Request basics". |
+| GraphQL `TweetResultByRestId` | `GET /i/api/graphql/<queryId>/TweetResultByRestId?variables=…&features=…` | When the post is not in the page, and on every click in the new app. See "Request basics". |
 
 Fields used (store / props, and the same under `legacy` in GraphQL): `extended_entities.media[]` with `type`
 (`photo`, `video`, `animated_gif`), `media_url_https` and `video_info.variants[]`; `created_at`; the owner's
@@ -348,7 +366,8 @@ post's author and date).
 X's `main.<hash>.js` (`abs.twimg.com/responsive-web/client-web/`) defines each query as
 `{queryId:"…",operationName:"TweetResultByRestId",operationType:"query",metadata:{featureSwitches:[…],fieldToggles:[…]}}`,
 which is how Diagnose mode and `tools/diagnose-x.js` find the current id and feature list. The built-in values are
-`DOC` and `TWEET_FEATURES` in `sites/x.js`.
+`DOC` and `TWEET_FEATURES` in `sites/x.js`. The new app has no `main.*.js`: discovery then finds nothing (one Diagnose
+line) and the built-in id is kept; `tools/diagnose-x.js` tests the lookup with its copy of the built-in features (`FEATURES`).
 
 ### Picking the file
 
@@ -369,7 +388,7 @@ which is how Diagnose mode and `tools/diagnose-x.js` find the current id and fea
 
 | Button | Placement | What it downloads |
 |---|---|---|
-| Post (timelines, post page, search, …) | Every `[role="group"]` that holds `[data-testid="reply"]` and `[data-testid="like"]`/`"unlike"`, appended after Share; icon colour copied from the Reply icon | All photos/videos of the post. Id from the link around the post's `<time>` (a quoted post has none, so the outer post is used); on a post page the main post (`article[tabindex="-1"]`) falls back to the URL; then React props |
+| Post (timelines, post page, search, …) | Every `[role="group"]` that is an action bar of either app (see "Two web apps"; `barKind` in `sites/x.js`), appended after Share; icon colour copied from the Reply icon | All photos/videos of the post. Id from the link around the post's `<time>` (old app), else the reply control or analytics link (new app); a quoted post's link is never used, so the outer post is; on a post page the main post (`tabindex="-1"` on the article or its parent) falls back to the URL; then React props |
 | Photo/video viewer (`/<user>/status/<id>/photo/<n>`) | Same action bar inside the `[role="dialog"]`, no `<article>` | Only the photo or video on screen (`n` from the URL, which changes as you page through). The viewer's side panel has a second, hidden copy |
 | Media tab → Photos grid (`/<user>/media?filter=photo`) | Tiles: `a[href*="/status/<id>/photo/1"]` (or `/video/1`) at least 100×100 px and not inside an `<article>`; bottom-right, shown on hover | All files of that post (the tile's link gives the id). The Media tab's default "Videos" view lists normal posts, which get post buttons |
 | Profile picture | Badge on `a[href="/<user>/photo"]` that holds a `profile_images` `<img>` | 400×400 original |
@@ -392,15 +411,19 @@ changed queryId usually goes unnoticed until the health check reports it.
 **2. Run the health check**: on an X profile with photo posts, F12 → Console, paste
 [`tools/diagnose-x.js`](tools/diagnose-x.js).
 
+The first row, "X web UI", says which app the page uses. In the new app the rows that only exist in the old one (Redux
+store, React props, X main script) are INFO/WARN, not FAIL. The queryId row runs only in the old app (it needs `main.*.js`).
+
 | FAIL row | Meaning | Fix |
 |---|---|---|
 | Logged in / CSRF token | Session expired | Log in again |
 | Redux store | X moved the store or stopped using Redux | Find where post data lives now (React DevTools on a post); update `findStore` in `sites/x-page.js`. React props still work meanwhile. |
 | Posts with media in the store / Post owner | Store shape changed | Inspect `__store.getState().entities`; update `serialize` in `x-page.js` |
 | Post React props | The `tweet` prop was renamed | Inspect the fibers above an `<article>`; update `tweetFromFiber` |
-| Post element / Action bar | `data-testid`s changed | Update `injectActionBars` (sites/x.js) |
+| Post element / Action bar | `data-testid`s (old app) or `data-engagement-action`s (new app) changed | Update `barKind` / `injectActionBars` (sites/x.js) |
+| Post id from the post's own links | New app: reply control or analytics link changed | Update `idFromReplyHref` / `idFromAnalyticsHref` / `idFromArticle` (sites/x.js) |
 | queryId … (detail starts "CHANGED:") | X renumbered the query | Copy the new id into `DOC` in `sites/x.js` and `BUILT_IN` in `tools/diagnose-x.js`; if the feature list changed, copy it into `TWEET_FEATURES` (diagnose-x.js always uses the current one) |
-| X main script | X replaced its web app (the logged-out pages already use a different "x-web" build) | Re-check everything in this section against the new app |
+| X main script | Old app without `main.*.js`: X changed its build again (the new "x-web" app has none by design and shows WARN) | Re-check everything in this section against the new app |
 | Post lookup (API) | Variables, headers or response changed | Capture what X itself does: DevTools → Network, filter `TweetResultByRestId` or `TweetDetail`, open a post |
 | Photo from CDN | `name=orig` no longer accepted | Check which `name=` values work on a `pbs.twimg.com/media/` URL |
 | Profile picture / Banner element | Link or image URL changed | Update `injectProfileImages` |

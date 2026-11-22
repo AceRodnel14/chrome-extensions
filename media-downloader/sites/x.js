@@ -13,7 +13,7 @@
   // GraphQL query used when a post is not in the page. `id` is the queryId last seen in X's main.js and is the part
   // that changes most often; Diagnose mode looks up the current one and remembers it (chrome.storage.local
   // "learnedDocIds", shared with Instagram). See context.md → "When X changes something".
-  const DOC = { tweet: { name: "TweetResultByRestId", id: "a-Xpq8PjX9K6U5cmc1f05A", label: "Post lookup" } };
+  const DOC = { tweet: { name: "TweetResultByRestId", id: "U8lc5aomF5krJzZ9vJ9wxg", label: "Post lookup" } };
   // The query fails unless every feature switch X expects is present; their values do not matter for media.
   const TWEET_FEATURES = [
     "creator_subscriptions_tweet_preview_api_enabled", "premium_content_api_read_enabled",
@@ -39,18 +39,11 @@
 
   const RESERVED = new Set(["home", "explore", "notifications", "messages", "i", "settings", "search", "compose", "login", "logout", "signup", "tos", "privacy", "jobs", "grok", "communities", "lists", "bookmarks", "premium_sign_up"]);
 
-  let settings = MDSettings.DEFAULTS;
-  let learnedDocIds = {};
-  const enabled = () => settings.sites[SITE_ID] !== false;
-
-  // Diagnose mode only: explain every call in the console.
-  const diag = (...args) => settings.diagnoseMode && console.info("[mediadownloader:diagnose]", ...args);
-
   // ---------------------------------------------------------------- routes
 
   // /<user>/status/<id>[/photo/<n> | /video/<n>]
   function route(href = location.href) {
-    const url = new URL(href, location.origin);
+    const url = new URL(href, "https://x.com");
     const [a, b, c, d, e] = url.pathname.split("/").filter(Boolean);
     if (!a || RESERVED.has(a.toLowerCase())) return { type: "other" };
     if (b === "status" && /^\d+$/.test(c || "")) {
@@ -59,6 +52,40 @@
     }
     return { type: "profile", username: a };
   }
+
+  // ---------------------------------------------------------------- the two web UIs
+
+  // X serves two UIs: the old one marks controls with data-testid, the new (Tailwind) one with
+  // data-engagement-action and has no data-testid, <time> or React props to read. Both are supported.
+  const BAR_PARTS = {
+    old: ['[data-testid="reply"]', '[data-testid="like"], [data-testid="unlike"]'],
+    new: ['[data-engagement-action="reply"]', '[data-engagement-action="like"], [data-engagement-action="unlike"]'],
+  };
+
+  // Which UI an action bar belongs to ("old" | "new"), or null when this [role=group] is not one.
+  // `has(selector)` asks whether the group contains a match.
+  function barKind(has) {
+    return ["old", "new"].find((ui) => BAR_PARTS[ui].every((selector) => has(selector))) || null;
+  }
+
+  // New UI: the post's own id from links inside its action bar / header. A quoted post's link is never used:
+  // the reply control ("/compose/post?in_reply_to=<id>") and the analytics link belong to the post itself.
+  const idFromReplyHref = (href) => /^\/compose\/post\?(?:.*&)?in_reply_to=(\d+)(?:&|$)/.exec(href || "")?.[1] || null;
+  const idFromAnalyticsHref = (href) => /^\/[^/]+\/status\/(\d+)\/analytics$/.exec(href || "")?.[1] || null;
+
+  const helpers = { route, barKind, idFromReplyHref, idFromAnalyticsHref };
+  // Unit tests load this file with a `module` object; a content script has none.
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = helpers;
+    return;
+  }
+
+  let settings = MDSettings.DEFAULTS;
+  let learnedDocIds = {};
+  const enabled = () => settings.sites[SITE_ID] !== false;
+
+  // Diagnose mode only: explain every call in the console.
+  const diag = (...args) => settings.diagnoseMode && console.info("[mediadownloader:diagnose]", ...args);
 
   // ---------------------------------------------------------------- API (only for posts not in the page)
 
@@ -138,7 +165,10 @@
   // X's main script defines every query as {queryId:"…",operationName:"<Name>",…,metadata:{featureSwitches:[…],…}}.
   async function discoverQuery(name) {
     const src = [...document.scripts].map((s) => s.src).find((u) => /\/client-web\/main\.[\w]+\.js/.test(u));
-    if (!src) return null;
+    if (!src) {
+      diag(`${name}: no main script on this page (new web UI); keeping the built-in queryId`);
+      return null;
+    }
     diag(`${name}: searching ${src} for the current queryId`);
     try {
       const text = await (await fetch(src)).text();
@@ -198,10 +228,13 @@
     return found?.id ? found : null;
   }
 
-  // The post's own permalink in an <article>: the link around its timestamp (a quoted post's has none).
+  // The post's own id in an <article>. Old UI: the link around its <time> (a quoted post's has none).
+  // New UI (no <time>): the reply control's and the analytics link's targets, which are the post's own.
   function idFromArticle(article) {
     const link = article?.querySelector('a[href*="/status/"] time')?.closest("a");
-    return link ? route(link.href).id : null;
+    if (link) return route(link.href).id;
+    const reply = article?.querySelector('[data-engagement-action="reply"] a')?.getAttribute("href");
+    return idFromReplyHref(reply) || idFromAnalyticsHref(article?.querySelector('a[href$="/analytics"]')?.getAttribute("href"));
   }
 
   // ---------------------------------------------------------------- media → files
@@ -400,19 +433,21 @@
   // Every post (timelines, post pages, the photo viewer) has an action bar: Reply, Repost, Like, Views, Bookmark, Share.
   function injectActionBars() {
     for (const bar of document.querySelectorAll('[role="group"]')) {
-      if (!bar.querySelector('[data-testid="reply"]') || !bar.querySelector('[data-testid="like"], [data-testid="unlike"]')) continue;
+      if (!barKind((selector) => bar.querySelector(selector))) continue;
       if (hasOwnButton(bar, "post") || hasOwnButton(bar, "viewer")) continue;
       const article = bar.closest("article");
       const inViewer = !article && Boolean(bar.closest('[role="dialog"]'));
       // Match the colour of the bar's own icons (they differ between the timeline and the dark photo viewer).
-      const color = getComputedStyle(bar.querySelector('[data-testid="reply"] svg') || bar).color;
+      const color = getComputedStyle(bar.querySelector('[data-testid="reply"] svg, [data-engagement-action="reply"] svg') || bar).color;
       const getTarget = () => {
         const r = route();
         if (inViewer) return r.type === "tweet" ? { type: "tweet", id: r.id, index: r.index, el: bar } : null;
         const sources = { articleLink: idFromArticle(article), url: r.type === "tweet" ? r.id : null };
         diag("post id sources (React props are checked first, then these)", sources);
-        // The post page's main post may have no timestamp link; then the address names it.
-        return { type: "tweet", id: sources.articleLink || (article?.getAttribute("tabindex") === "-1" ? sources.url : null), el: bar };
+        // The post page's main post may have no timestamp link; then the address names it. It is the post with
+        // tabindex="-1" (the <article> in the old UI, its wrapper in the new one).
+        const isMain = [article, article?.parentElement].some((el) => el?.getAttribute("tabindex") === "-1");
+        return { type: "tweet", id: sources.articleLink || (isMain ? sources.url : null), el: bar };
       };
       bar.append(makeButton(inViewer ? "viewer" : "post", getTarget, { color, alignSelf: "center" }));
     }

@@ -608,16 +608,18 @@ have a button; test the lookup by clicking one.
 
 ## RedNote
 
-Content script on `https://www.rednote.com/*`: `sites/rednote.js` (isolated world only). Scope, as the user asked:
+Content script on `https://www.rednote.com/*`: `sites/rednote.js` (isolated world) and `sites/rednote-page.js` (`"world": "MAIN"`, see "Reading the
+opened note"). Scope, as the user asked:
 **profile pages only** (`/user/profile/<uid>`), no feed. RedNote shows a user's notes only when **logged in** (logged out,
 a "Log in to view this user's notes" overlay covers the grid). Researched 2026-11-07; details in agentic-config
-`research/rednote-media-downloader.md`.
+`research/rednote-media-downloader.md`. Changed 2026-11-24 (0.3.3): RedNote now redirects the old per-click
+`/explore/<noteId>` page lookup to `/discovery/item/<noteId>`, so the extension reads the opened note instead.
 
 ### Where the buttons go
 
 | Button | Where | Note ID and token |
 |---|---|---|
-| `tile` | Each `section.note-item` in the profile grid | `a.cover[href]` = `/user/profile/<uid>/<noteId>?xsec_token=…`, read at click time (the token can expire) |
+| `tile` | Each `section.note-item` in the profile grid | Note ID from `a.cover[href]` = `/user/profile/<uid>/<noteId>?xsec_token=…`; the click opens the note through that link |
 | `note` | The opened note (URL `/discovery/item/<noteId>?xsec_token=…`) | From `location` |
 | `profile` | The profile header's avatar | — |
 
@@ -632,30 +634,48 @@ for this profile. `basicInfo` itself has no user id, so the check is that a note
 (`user.notes[*][i].noteCard.user.userId`) has the uid from the URL (`basicInfoFor` in `sites/rednote.js`). `user.userInfo` is the **viewer's own** account and is never read. No match → "Profile lookup failed: no
 RedNote ID on this page"; the hex id and the display name are never used instead.
 
-### One lookup per click
+### Reading the opened note
 
-Each click makes **one** same-origin request, with the user's cookies and no request signing:
-`/explore/<noteId>?xsec_token=<token>&xsec_source=pc_user`. Its HTML holds `window.__INITIAL_STATE__` (JavaScript, not
-JSON: `new Set([…])` and bare `undefined` are rewritten before `JSON.parse`; nothing is evaluated or inserted into the
-page) with the note at `note.noteDetailMap[<noteId>].note`. Nothing is fetched in advance and nothing is retried.
+No request for the note, no API. RedNote keeps an opened note in its live page state,
+`window.__INITIAL_STATE__.note.noteDetailMap[<noteId>].note` (Vue refs: `_rawValue`, else `_value`), which only the
+page world can see:
 
-**Security check (captcha).** RedNote redirects to `/website-login/captcha` after many lookups in a short time (seen
-after about 100 in a few minutes during research). The extension then shows "Note lookup failed: RedNote asks for a
-security check. Open the note in this tab, complete it, then try again." The signed `webapi.rednote.com` feed API
-(`x-s`, `x-t` headers) is deliberately not used.
+1. **Tile button:** clicks the tile's `a.cover` once, exactly like the user would; RedNote opens the note as an overlay
+   (`/discovery/item/<noteId>?xsec_token=…&xsec_source=pc_user`). The overlay is left open.
+   **Note button:** the note is already open, nothing is clicked.
+2. `sites/rednote.js` asks `sites/rednote-page.js` for the note every 250 ms, for at most 10 s (same bridge as X: a
+   `md:rednote-note` CustomEvent with the noteId in `data-md-want`, a synchronous JSON reply in `data-md-note`). The
+   page script sends only noteId, type, time, author id, the photos' `fileId`/`urlDefault`/`WB_DFT`/live-photo streams
+   and the video streams, never the whole state; it makes no request and evaluates nothing.
+3. Right after the click RedNote first stores a **partial** note (one photo, `time` null); the full note follows about
+   400 ms later. So the note counts as loaded only once `time` is a number.
+4. The reply is untrusted (the page could forge it): the noteId, `type` (`normal`/`video`), `time` and the author
+   (must be the profile's uid) are checked, and every URL is built from allow-listed parts (below).
+
+One click opens one note; nothing is retried or fetched in advance. One download runs at a time: a click while one is
+running shows "A download is still running: wait for it to finish, then click again." If the post doesn't load in 10 s:
+"Note lookup failed: the post did not load in time" (Diagnose mode adds the noteId and URL).
+
+**Security check (captcha).** RedNote redirects to `/website-login/captcha` after many notes in a short time (seen
+after about 100 in a few minutes during research). If that happens while waiting, the extension stops with "RedNote
+asked for a security check (captcha): solve it in this tab, then click again." It never clicks again by itself. The
+signed `webapi.rednote.com` feed API (`x-s`, `x-t` headers) is deliberately not used.
 
 ### Picking the file
 
 | Note | File(s) |
 |---|---|
-| Photos | Per `imageList[i]`: `https://ci.xiaohongshu.com/<fileId>` = the **original** (e.g. 2316×3088 JPEG, no watermark). The page's own URLs (`urlDefault`, `infoList` `WB_DFT`) are signed, smaller WebPs and are only the fallback |
-| Video | The first non-empty `video.media.stream[<codec>]` (the keys `EF4`…`EF7` are obfuscated, so none is named) `[0].masterUrl` (h264 `.mp4`, no watermark), else `backupUrls[0]`; the cover image is skipped |
+| Photos | Per `imageList[i]`: `https://ci.xiaohongshu.com/<fileId>` = the **original** (e.g. 2316×3088 JPEG, no watermark). `fileId` looks like `oss-sg/notes_pre_post/<id>`; without it, the path after `/<stamp>/<sig>/` of `urlDefault`, without its `!suffix`. Shapes seen: `oss-sg/notes/<id>`, `oss-sg/notes_pre_post/<id>`, `notes_pre_post/<id>` and a bare `<id>`; the full path must be kept (the same id under another folder answers 404). The path must match `^(?:[a-z0-9_-]{1,20}/){0,2}[A-Za-z0-9_-]{8,80}$` (no dots, at most two folders). The page's own URLs (`urlDefault`, `infoList` `WB_DFT`) are signed, smaller WebPs and are only the fallback |
+| Video | The first non-empty `video.media.stream[<codec>]` (the keys `EF4`…`EF7` are obfuscated, so none is named; seen 2026-11-24: only `EF4` filled) `[0].masterUrl` (h264 `.mp4` on `sns-v*.rednotecdn.com`, no watermark), else `backupUrls[0]`; the cover image (`imageList[0]` of a video note) is skipped |
 | Live photo | `imageList[i].livePhoto` with a `stream`: the photo, then its clip (`.mp4`), numbered one after the other. Not yet seen on a real note |
 | Profile picture | `basicInfo.images` (or the avatar `src`) without its query string: `sns-avatar-qc.rednotecdn.com/avatar/<id>`, the original (e.g. 1170×1170) |
 
-`background.js` requests the first byte of each original photo (`rednoteProbe`, a ranged GET `Range: bytes=0-0`, host
-permission `ci.xiaohongshu.com`): the Content-Type gives the extension (JPEG, HEIC, PNG, WebP); any answer other than
-200/206 means the fallback URL is used. The CDN
+`background.js` requests the first 16 bytes of each original photo (`rednoteProbe`, a ranged GET `Range: bytes=0-15`,
+host permission `ci.xiaohongshu.com`). The server sends `application/octet-stream`, so the extension comes from the
+file's magic bytes (JPEG, PNG, WebP, GIF, HEIC, AVIF), else a specific `image/*` Content-Type, else `jpg`. HEIC
+originals are saved as `.heic`, which some viewers can't open. Any answer other than 200/206 means the fallback URL is
+used. Fallback, video and clip URLs must be https on a host ending in `.rednotecdn.com` or `.xhscdn.com` (`http://`
+from the state is upgraded to `https://`); anything else is rejected. The CDN
 files need no cookies or referer, so `chrome.downloads` saves them directly. The File size setting does not apply:
 always the original.
 
@@ -665,14 +685,17 @@ always the original.
 ### When RedNote changes something
 
 Run [`tools/diagnose-rednote.js`](tools/diagnose-rednote.js) on a RedNote profile while logged in (F12 → Console →
-paste). It makes at most one note lookup. Its constants are copies of `sites/rednote.js`; keep them in sync.
+paste). Open a note first: without one, its post rows show SKIP. It never clicks; it makes at most one ranged
+request for an original photo (the CDN sends no CORS headers, so that row is usually INFO; the extension's background
+worker probes it). Its constants are copies of `sites/rednote.js`; keep them in sync.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | No buttons on tiles | `section.note-item` / `a.cover` renamed | Inspect a tile; update the selectors |
 | "Profile lookup failed: no RedNote ID …" | `.user-redId` or `user.userPageData.basicInfo` changed | Inspect the profile header / the inline state |
-| "Note lookup failed: … security check" | Captcha | Open the note, complete the check, retry later; never loop |
-| "Note lookup failed" otherwise | `/explore` page or `noteDetailMap` changed | Check the state in the fetched HTML; update the parser |
+| "RedNote asked for a security check …" | Captcha | Complete the check in the tab, retry later; never loop |
+| "Note lookup failed: the post did not load in time" | The tile no longer opens the note, or `noteDetailMap` moved/renamed | Click the tile by hand; check `__INITIAL_STATE__.note` in the console; update `rednote-page.js` |
+| "Note lookup failed" otherwise | A state field changed (`type`, `time`, `user.userId`) | Run the diagnose script with a note open; update the reply check |
 | Video not found | `video.media.stream` changed | Inspect the note's state; look for `masterUrl` |
 | Photos saved small | The ci original returned non-200 | Check the `fileId` and `ci.xiaohongshu.com` with curl |
 

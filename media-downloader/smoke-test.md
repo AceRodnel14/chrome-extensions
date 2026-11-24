@@ -145,12 +145,12 @@ crossposts) and r/gifs/new (uploaded GIFs).
 ## RedNote: buttons and downloads
 
 Logged in. Files go to `Downloads\rednote.com\`, named `<rednote ID>_--rednote--_<date>…`. Health check:
-[`tools/diagnose-rednote.js`](tools/diagnose-rednote.js). Keep it to a few clicks: many lookups in a short time make
-RedNote ask for a security check.
+[`tools/diagnose-rednote.js`](tools/diagnose-rednote.js) (open a post first, or its post rows show SKIP). Keep it to a
+few clicks: opening many posts in a short time makes RedNote ask for a security check.
 
 | # | Where | Do | Expect |
 |---|---|---|---|
-| N1 | A profile's grid, a photo post | Click the button on the tile | Every photo, `_0` …, original size (e.g. 2316 px tall), right extension, no watermark; the post does **not** open |
+| N1 | A profile's grid, a photo post | Click the button on the tile | Every photo, `_0` …, original size (e.g. 2316 px tall), right extension, no watermark; the post opens (like a normal click) and stays open |
 | N2 | Same grid, a video post | Click the button on the tile | One `.mp4`, no watermark |
 | N3 | Open a post (it shows as `/discovery/item/…`) | Click the button | Same files as from its tile |
 | N4 | The profile picture | Click the badge | `<rednote ID>_--rednote--_profile.jpg`, full size (e.g. 1170×1170) |
@@ -158,6 +158,7 @@ RedNote ask for a security check.
 | N6 | A live photo post (if you find one) | Click | Each photo followed by its clip (`.mp4`) |
 | N7 | Prefer description YYMMDD date on | Download a post | Same file name as with it off |
 | N8 | Logged out | Look at a profile | RedNote's login overlay; nothing wrong is saved |
+| N9 | Click a tile button, then click another one at once | Click twice | The second click shows "A download is still running: …"; only the first post is saved |
 
 ## Naver Blog: buttons and downloads
 

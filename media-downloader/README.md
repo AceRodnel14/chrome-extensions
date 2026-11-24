@@ -208,6 +208,8 @@ to load the repository, or you loaded the repository's old `Media Downloader` fo
 - 0.3.2: X post buttons work again in X's new web app (X now serves an old and a new version of its site, even to
   the same account; both are supported). In the new version each X download makes one lookup to X, so it can take a
   moment longer to start.
+- 0.3.3: RedNote post downloads work again. A tile's button now opens the post (like a normal click) and saves
+  its original photos and videos once it has loaded; the post stays open. Reload open RedNote tabs after updating.
 - Optional: run the smoke test's health checks (`tools/diagnose*.js`), or the automated run `tools/smoke/smoke.py`, to confirm everything works.
 - The exiftool helper needs nothing: the browser starts it fresh for every download, so changes to it apply at once
   (if the browser loads a copy of the folder, copy `native/` along with the rest).
@@ -274,17 +276,18 @@ check (`tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, 
 | `sites/youtube-page.js` | Helper running in YouTube's page context that reads a post's images from its element data |
 | `sites/reddit.js` | Reddit buttons and file selection (Reddit's JSON, the player's packaged mp4s for videos with sound, and RedGifs clips through `background.js`) |
 | `native/` | exiftool helper (`mediadownloader_exiftool.py`) and its installers; runs outside Chrome |
-| `sites/rednote.js` | RedNote buttons and file selection (one lookup of the post's page per click, original photos, videos, live photos, profile picture) |
+| `sites/rednote.js` | RedNote buttons and file selection (a tile button opens the post like a click and reads it from the page; original photos, videos, live photos, profile picture) |
+| `sites/rednote-page.js` | Helper running in RedNote's page context that reads the opened post from the page's state |
 | `sites/naver-blog.js` | Naver Blog buttons and file selection (one button per picture; everything is read from the page, no requests; runs in every frame because the desktop post is in an iframe) |
 | `sites/naver-entertain.js` | Naver Entertain buttons and file selection (one button per article picture, one for the viewer's active picture; everything is read from the page, no requests) |
 | `shared/naver.js` | Helpers shared by the two Naver sites (file extension, Korean time parser, press-name space removal) |
 | `tools/diagnose.js`, `tools/diagnose-x.js`, `tools/diagnose-youtube.js`, `tools/diagnose-reddit.js`, `tools/diagnose-rednote.js`, `tools/diagnose-naver-blog.js`, `tools/diagnose-naver-entertain.js` | Health checks to paste into the console on Instagram / X / YouTube / Reddit / RedNote / Naver Blog / Naver Entertain when downloads stop working (not part of the extension's runtime) |
 | `tools/smoke/` | Automated smoke test (`smoke.py`, pages in `cases.toml`, logs in `logs/`); see [smoke-test.md](smoke-test.md) "Automated run" (not part of the extension's runtime) |
-| `tools/tests/` | Unit tests for the description-date parser in `shared/settings.js` and the Naver helpers (`shared/naver.js`, `sites/naver-blog.js`, `sites/naver-entertain.js`): `node --test media-downloader/tools/tests/*.test.js` (Node 20+, no dependencies; not part of the extension's runtime) |
+| `tools/tests/` | Unit tests for the description-date parser in `shared/settings.js` the Naver helpers (`shared/naver.js`, `sites/naver-blog.js`, `sites/naver-entertain.js`) and the RedNote helpers (`sites/rednote.js`, `sites/rednote-page.js`): `node --test media-downloader/tools/tests/*.test.js` (Node 20+, no dependencies; not part of the extension's runtime) |
 
 See [context.md](context.md) for how downloading works per site and [smoke-test.md](smoke-test.md) for the
 checklist to confirm everything still works.
 
 ---
 
-_Developed with assistance from Claude (Claude Opus 5.5)._
+_Developed with assistance from AI (Claude Opus 5.5 in Claude Code)._

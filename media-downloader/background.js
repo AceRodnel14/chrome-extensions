@@ -213,23 +213,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
-// RedNote: probe (ranged GET of the first byte) the original-image URLs of one note, so the content script can pick the file extension from the
-// Content-Type and fall back to the smaller file when the original is missing. One message per click.
-// Reply: { ok: true, results: [{ status, contentType }] } in the order of msg.urls; status is 200 when the file exists
-// (200 or 206), else the HTTP status, or 0 when it could not be reached.
+// RedNote: probe the original-image URLs of one note with a ranged GET of the first 16 bytes, so the content script can
+// pick the file extension from the magic bytes and fall back to the smaller file when the original is missing.
+// One message per click. Reply: { ok: true, results: [{ status, contentType, head }] } in the order of msg.urls; status is
+// 200 when the file exists (200 or 206), else the HTTP status, or 0 when it could not be reached; head is up to 16 bytes
+// (a number array).
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type !== "rednoteProbe") return;
   const urls = (Array.isArray(msg.urls) ? msg.urls : []).slice(0, 100);
+  const miss = (status) => ({ status, contentType: "", head: [] });
   Promise.all(
     urls.map((url) =>
-      /^https:\/\/ci\.xiaohongshu\.com\//.test(url)
-        ? fetch(url, { headers: { Range: "bytes=0-0" } })
-            .then((r) => {
-              r.body?.cancel();
-              return { status: r.status === 206 ? 200 : r.status, contentType: (r.headers.get("content-type") || "").split(";")[0].trim() };
+      typeof url === "string" && /^https:\/\/ci\.xiaohongshu\.com\//.test(url)
+        ? fetch(url, { headers: { Range: "bytes=0-15" } })
+            .then(async (r) => {
+              const status = r.status === 206 ? 200 : r.status;
+              const contentType = (r.headers.get("content-type") || "").split(";")[0].trim();
+              let head = [];
+              if (status === 200 && r.body) {
+                const reader = r.body.getReader();
+                const bytes = [];
+                // The first chunk can be shorter than 16 bytes; HEIC/AVIF need bytes 4-11.
+                for (let chunk = await reader.read(); !chunk.done && bytes.length < 16; chunk = bytes.length < 16 ? await reader.read() : chunk) bytes.push(...chunk.value);
+                head = bytes.slice(0, 16);
+                reader.cancel().catch(() => {});
+              } else r.body?.cancel();
+              return { status, contentType, head };
             })
-            .catch(() => ({ status: 0, contentType: "" }))
-        : { status: 0, contentType: "" }
+            .catch(() => miss(0))
+        : miss(0)
     )
   ).then((results) => sendResponse({ ok: true, results }));
   return true;

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "mediadownloader",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Download original-resolution images and videos with one click from Instagram, X (Twitter), YouTube posts, Reddit, RedNote, Naver Blog and Naver Entertain.",
   "permissions": [
     "downloads",
@@ -126,6 +126,16 @@
         "shared/report.js",
         "sites/rednote.js"
       ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.rednote.com/*"
+      ],
+      "js": [
+        "sites/rednote-page.js"
+      ],
+      "world": "MAIN",
       "run_at": "document_idle"
     },
     {

@@ -70,4 +70,4 @@ settings, so note them first:
 
 ---
 
-_Developed with assistance from Claude (Claude Opus 5.5)._
+_Developed with assistance from AI (Claude Opus 5.5 in Claude Code)._

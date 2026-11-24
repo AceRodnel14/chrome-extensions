@@ -1,12 +1,128 @@
 // mediadownloader: RedNote (rednote.com) support.
-// Adds a download button to every post tile on a user's profile, to the opened post (the modal over the profile) and
-// to the profile picture. There is no feed, bulk or "download all" mode: one click saves one post.
-// Everything needed comes from the profile page itself plus ONE request per click: the post's own page
-// (/explore/<id>?xsec_token=…), whose HTML carries the post's full data in window.__INITIAL_STATE__. Nothing is
-// prefetched, retried or signed. The description-date option does not apply here (MDSettings.postTime is never used).
+// Adds a download button to every post tile on a user's profile, to the opened post (/discovery/item/<id>) and to the
+// profile picture. There is no feed, bulk or "download all" mode: one click saves one post.
+// A tile click opens the post like a normal click (a.cover), then waits until RedNote's own page has the post's data in
+// window.__INITIAL_STATE__ (read by rednote-page.js, page world). Nothing is fetched, prefetched, retried or signed, and
+// RedNote's API is never called. The description-date option does not apply here (MDSettings.postTime is never used).
 (() => {
   const SITE_ID = "rednote";
   const BTN = "md-download-btn";
+
+  // ---------------------------------------------------------------- pure helpers (unit-tested)
+
+  const EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/heif": "heif", "image/gif": "gif", "image/avif": "avif" };
+  const extOfUrl = (url, fallback) => (url.split("?")[0].match(/\.(jpe?g|png|gif|webp|heic|avif)$/i)?.[1].toLowerCase().replace("jpeg", "jpg")) || fallback;
+
+  // Hosts the page's media URLs may point to (never anything else).
+  const CDN_HOST = /^([a-z0-9-]+\.)+(rednotecdn\.com|xhscdn\.com)$/i;
+  // The original-image path under https://ci.xiaohongshu.com/ (a fileId from the page state has this exact shape).
+  const ORIGINAL_PATH = /^(?:[a-z0-9_-]{1,20}\/){0,2}[A-Za-z0-9_-]{8,80}$/; // e.g. oss-sg/notes/<id>, oss-sg/notes_pre_post/<id>, notes_pre_post/<id>, <id>: no dots, no "..", no leading slash
+
+  // A media URL from the page → https URL on an allow-listed CDN host, else null. http is upgraded to https (the CDN
+  // serves both; checked on sns-web-*.rednotecdn.com).
+  function safeMediaUrl(url) {
+    if (typeof url !== "string" || url.length > 2000) return null;
+    let u;
+    try {
+      u = new URL(url);
+    } catch {
+      return null;
+    }
+    if ((u.protocol !== "https:" && u.protocol !== "http:") || u.username || u.password || u.port) return null;
+    if (!CDN_HOST.test(u.hostname)) return null;
+    u.protocol = "https:";
+    return u.href;
+  }
+
+  // https://sns-web-i10.rednotecdn.com/<stamp>/<sig>/<path>!<suffix> → "<path>" (null when it does not look like that).
+  function pathOfUrlDefault(url) {
+    const safe = safeMediaUrl(url);
+    const m = safe && /^\/\d+\/[0-9a-f]+\/([^!?#]+)/.exec(new URL(safe).pathname);
+    return m && ORIGINAL_PATH.test(m[1]) ? m[1] : null;
+  }
+
+  // The original's URL for one photo: fileId first (when valid), else the path inside urlDefault. null if neither fits.
+  function originalUrl(img) {
+    const path = ORIGINAL_PATH.test(img?.fileId || "") ? img.fileId : pathOfUrlDefault(img?.urlDefault);
+    return path ? `https://ci.xiaohongshu.com/${path}` : null;
+  }
+
+  // Smaller file RedNote itself shows (1080 px WebP), used only when the original is missing.
+  const fallbackUrl = (img) => safeMediaUrl(img?.wbDft) || safeMediaUrl(img?.urlDefault);
+
+  // Stream keys are obfuscated (EF4, EF5, ...) and may change: take the first non-empty list (cover excluded: the
+  // caller passes a stream, never a cover image).
+  function streamUrl(stream) {
+    const entry = Object.values(stream || {}).find((list) => Array.isArray(list) && list.length)?.[0];
+    return safeMediaUrl(entry?.masterUrl) || safeMediaUrl(entry?.backupUrls?.[0]);
+  }
+
+  // File type from the first bytes (the CDN says application/octet-stream), else a specific image Content-Type, else jpg.
+  function sniffExt(head, contentType) {
+    const b = Array.isArray(head) ? head : [];
+    const at = (i, text) => [...text].every((c, k) => b[i + k] === c.charCodeAt(0));
+    if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpg";
+    if (b[0] === 0x89 && at(1, "PNG")) return "png";
+    if (at(0, "RIFF") && at(8, "WEBP")) return "webp";
+    if (at(0, "GIF8")) return "gif";
+    if (at(4, "ftyp")) {
+      const brand = String.fromCharCode(...b.slice(8, 12));
+      if (["heic", "heix", "mif1"].includes(brand)) return "heic";
+      if (brand === "avif") return "avif";
+    }
+    return EXTENSIONS[(contentType || "").split(";")[0].trim().toLowerCase()] || "jpg";
+  }
+
+  // The page-world reply is untrusted text. Returns the note (only the fields we use, URLs not yet checked), null while
+  // the page has no photos/video yet, and throws a plain Error for a reply that cannot be right.
+  function parseReply(raw, noteId, uid) {
+    let r;
+    try {
+      r = JSON.parse(raw);
+    } catch {
+      throw new Error("unreadable reply");
+    }
+    if (!r || typeof r !== "object" || Array.isArray(r)) throw new Error("unexpected reply");
+    if (typeof r.error === "string") return null; // not in the page state yet
+    if (r.noteId !== noteId) throw new Error("reply is for another post");
+    if (r.type === "") return null; // the page has only a stub of the post so far
+    if (r.type !== "normal" && r.type !== "video") throw new Error(`unsupported post type ${JSON.stringify(r.type)}`);
+    const imageList = Array.isArray(r.imageList) ? r.imageList.slice(0, 100).filter((i) => i && typeof i === "object") : [];
+    const stream = r.video?.stream && typeof r.video.stream === "object" ? r.video.stream : {};
+    if (r.type === "video" ? !streamUrl(stream) : !imageList.length) return null; // photos/video not loaded yet
+    // RedNote first shows a partial post (one photo, no time) and fills in the rest a moment later: the post time is
+    // the sign that the data is complete. Waiting for it also avoids saving too few photos.
+    if (typeof r.time !== "number" || !Number.isFinite(r.time)) return null;
+    const userId = r.user?.userId;
+    if (typeof userId !== "string" || !userId) throw new Error("reply has no author");
+    if (uid && userId !== uid) throw new Error(`this post belongs to another account than the profile on screen (post by ${userId}, profile ${uid})`);
+    return { noteId, type: r.type, time: r.time, userId, imageList, stream };
+  }
+
+  // steps: [{ img } | { clip }]; originals: original URL (or null) per step; reply: the rednoteProbe answer (results are for
+  // the non-null originals, in order). Returns [{ url, ext }]: the original with the sniffed type, the smaller file when the
+  // original is missing, a live photo's clip as mp4. When the probe got no answer the originals are assumed to be jpg.
+  function mapProbe(steps, originals, reply, log = () => {}, fail = (detail) => new Error(`Photo lookup failed: ${detail}`)) {
+    const results = reply?.ok ? reply.results || [] : [];
+    let p = 0;
+    return steps.map((s, i) => {
+      if (s.clip) return { url: s.clip, ext: "mp4" };
+      const original = originals[i];
+      const result = original ? (reply?.ok ? results[p++] : { status: 200, head: [], contentType: "" }) : null;
+      if (result?.status === 200) return { url: original, ext: sniffExt(result.head, result.contentType) };
+      const fallback = fallbackUrl(s.img);
+      if (!fallback) throw fail(`${original || "no original URL"}: HTTP ${result?.status ?? "-"}`);
+      log(`original ${original || "(none)"} not available (HTTP ${result?.status ?? "-"}); using RedNote's smaller version`);
+      return { url: fallback, ext: extOfUrl(fallback, "webp") };
+    });
+  }
+
+  const helpers = { mapProbe, safeMediaUrl, pathOfUrlDefault, originalUrl, fallbackUrl, streamUrl, sniffExt, parseReply };
+  // Unit tests load this file with a `module` object; a content script has none.
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = helpers;
+    return;
+  }
 
   let settings = MDSettings.DEFAULTS;
   const enabled = () => settings.sites[SITE_ID] !== false;
@@ -66,60 +182,55 @@
     return document.querySelector("section.note-item a.cover")?.getAttribute("href")?.match(/\/user\/profile\/([0-9a-f]+)/)?.[1] || null;
   }
 
-  const noteCache = new Map();
+  // Ask rednote-page.js (page world) for the opened post's data; null while it is not there yet.
+  function readNote(noteId, uid) {
+    const el = document.documentElement;
+    el.removeAttribute("data-md-note");
+    el.setAttribute("data-md-want", noteId);
+    el.dispatchEvent(new CustomEvent("md:rednote-note", { bubbles: true }));
+    const raw = el.getAttribute("data-md-note");
+    el.removeAttribute("data-md-note");
+    el.removeAttribute("data-md-want");
+    if (!raw) return null;
+    try {
+      return parseReply(raw, noteId, uid);
+    } catch (err) {
+      throw callError("Note lookup", err.message, `${noteId}: ${raw.slice(0, 200)}`);
+    }
+  }
 
-  // One request: the post's own page. Blocked (login/security check) pages are reported, never retried.
-  async function getNote(noteId, token) {
-    if (noteCache.has(noteId)) return noteCache.get(noteId);
-    if (!/^[0-9a-f]+$/i.test(noteId)) throw callError("Note lookup", "this post has an unexpected id.", `id ${JSON.stringify(noteId)}`);
-    if (!token) throw callError("Note lookup", "this post's link has no access token.", `${noteId}: no xsec_token`);
-    const path = `/explore/${noteId}?xsec_token=${encodeURIComponent(token)}&xsec_source=pc_user`;
-    diag(`Note lookup: GET /explore/${noteId}?xsec_token=…`);
-    const blocked = (detail) =>
-      callError("Note lookup", "RedNote asks for a security check. Open the note in this tab, complete it, then try again.", detail);
-    const r = await fetch(path, { credentials: "include" });
-    if (r.redirected || r.url.includes("/website-login/")) throw blocked(`redirected to ${new URL(r.url).pathname}`);
-    if (r.status !== 200) throw blocked(`HTTP ${r.status}`);
-    const state = parseState(await r.text());
-    if (!state) throw blocked("no window.__INITIAL_STATE__ in the page");
-    const detail = unref(unref(unref(state.note)?.noteDetailMap)?.[noteId]);
-    const note = unref(detail?.note);
-    if (!note) throw callError("Note lookup", "RedNote did not return this post.", `${noteId}: no note.noteDetailMap[id].note`);
-    diag("Note lookup: OK", { type: note.type, images: note.imageList?.length, time: note.time });
-    noteCache.set(noteId, note);
-    return note;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const CAPTCHA = "RedNote asked for a security check (captcha): solve it in this tab, then click again.";
+
+  // Wait (poll every 250 ms, 10 s at most) until the page state has the post. Never clicks again, never solves a captcha.
+  async function waitForNote(noteId, uid) {
+    for (let waited = 0; waited <= 10000; waited += 250) {
+      if (location.pathname.startsWith("/website-login/")) throw new Error(CAPTCHA);
+      const note = readNote(noteId, uid);
+      if (note) return note;
+      await sleep(250);
+    }
+    if (location.pathname.startsWith("/website-login/")) throw new Error(CAPTCHA);
+    throw callError("Note lookup", "the post did not load in time", `${noteId} at ${location.href}`);
   }
 
   // ---------------------------------------------------------------- media → files
 
-  const EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/heif": "heif", "image/gif": "gif", "image/avif": "avif" };
-  const extOfUrl = (url, fallback) => (url.split("?")[0].match(/\.(jpe?g|png|gif|webp|heic|avif)$/i)?.[1].toLowerCase().replace("jpeg", "jpg")) || fallback;
-
-  // Stream keys are obfuscated (EF4, EF5, …) and may change: take the first non-empty list.
-  function streamUrl(stream) {
-    const entry = Object.values(stream || {}).find((list) => Array.isArray(list) && list.length)?.[0];
-    return entry?.masterUrl || entry?.backupUrls?.[0] || null;
-  }
-
-  // Smaller file RedNote itself shows (1080 px WebP), used only when the original is missing.
-  const fallbackUrl = (img) => img.infoList?.find((i) => i.imageScene === "WB_DFT")?.url || img.urlDefault || img.url || null;
-
-  // Every file of a note, in order: [{ url, ext }]. Photos are the original upload (ci.xiaohongshu.com/<fileId>); their
-  // type is read from a request made by the background worker (one message for the whole note).
+  // Every file of a note, in order: [{ url, ext }]. Photos are the original upload (ci.xiaohongshu.com/<path>); their
+  // type is sniffed from the first bytes, read by the background worker (one message for the whole note).
   async function filesOf(note) {
-    const clip = streamUrl(note.video?.media?.stream);
-    if (note.type === "video" || clip) {
-      if (!clip) throw callError("Video lookup", "RedNote returned no video file for this post.", `${note.noteId}: no video.media.stream[*][0].masterUrl`);
+    if (note.type === "video") {
+      const clip = streamUrl(note.stream);
+      if (!clip) throw callError("Video lookup", "RedNote returned no video file for this post.", `${note.noteId}: no video stream masterUrl`);
       return [{ url: clip, ext: "mp4" }]; // imageList[0] is only the cover
     }
     const steps = []; // photos, each live photo followed by its clip
-    for (const img of note.imageList || []) {
+    for (const img of note.imageList) {
       steps.push({ img });
       const live = img.livePhoto === true ? streamUrl(img.stream) : null;
       if (live) steps.push({ clip: live });
     }
-    if (!steps.length) throw new Error("This post has no photos or videos.");
-    const originals = steps.map((s) => (s.img?.fileId ? `https://ci.xiaohongshu.com/${s.img.fileId}` : null));
+    const originals = steps.map((s) => (s.img ? originalUrl(s.img) : null));
     const probe = originals.filter(Boolean);
     diag(`File type probe: ranged GET of ${probe.length} originals (through the background worker)`);
     let reply = { ok: true, results: [] };
@@ -130,19 +241,8 @@
         reply = { ok: false, error: err.message };
       }
     }
-    const results = reply?.ok ? reply.results : [];
     if (!reply?.ok) diag("File type probe: no answer, assuming the originals are jpg", reply);
-    let p = 0;
-    return steps.map((s, i) => {
-      if (s.clip) return { url: s.clip, ext: "mp4" };
-      const original = originals[i];
-      const result = original ? (reply?.ok ? results[p++] : { status: 200, contentType: "" }) : null;
-      if (result?.status === 200) return { url: original, ext: EXTENSIONS[result.contentType] || "jpg" };
-      const fallback = fallbackUrl(s.img);
-      if (!fallback) throw callError("Photo lookup", "RedNote has no file for one of the photos.", `${original || "no fileId"}: HTTP ${result?.status ?? "-"}`);
-      diag(`original ${original || "(none)"} not available (HTTP ${result?.status ?? "-"}); using RedNote's smaller version`);
-      return { url: fallback, ext: extOfUrl(fallback, "webp") };
-    });
+    return mapProbe(steps, originals, reply, diag, (detail) => callError("Photo lookup", "RedNote has no file for one of the photos.", detail));
   }
 
   // What to download for a clicked button → [{ url, filename, takenAt }].
@@ -156,14 +256,17 @@
       const vars = { username: redIdOf(uid), createdDate: "profile", website };
       return [{ url, filename: MDSettings.buildFilename(settings.filenamePattern, vars, null, extOfUrl(url, "jpg")) }];
     }
+    // Read before the click: the opened post changes the address, and the profile stays on screen below it.
     const uid = profileUid();
-    const note = await getNote(target.noteId, target.token);
-    if (uid && note.user?.userId && note.user.userId !== uid) {
-      throw callError("Profile lookup", "this post belongs to another account than the profile on screen.", `post by ${note.user.userId}, profile ${uid}`);
+    const username = redIdOf(uid);
+    if (target.kind === "tile") {
+      diag("opening the post", target.noteId);
+      target.cover.click(); // exactly one click per button press
     }
+    const note = await waitForNote(target.noteId, uid);
     const files = await filesOf(note);
     const takenAt = Math.floor(note.time / 1000) || null;
-    const vars = { username: redIdOf(uid), createdDate: MDSettings.formatDate(takenAt ? takenAt * 1000 : null), website };
+    const vars = { username, createdDate: MDSettings.formatDate(takenAt ? takenAt * 1000 : null), website };
     return files.map((f, i) => ({
       url: f.url,
       filename: MDSettings.buildFilename(settings.filenamePattern, vars, files.length > 1 ? i : null, f.ext),
@@ -173,15 +276,20 @@
 
   // ---------------------------------------------------------------- downloading + feedback
 
+  // One download at a time in this tab: a click during an in-flight one is ignored (the tile click opens a post).
+  let busy = false;
+
   async function download(getTarget, btn) {
-    if (btn?.dataset.busy) return;
-    if (btn) {
-      btn.dataset.busy = "1";
-      btn.style.opacity = "0.4";
+    if (busy) {
+      toast("A download is still running: wait for it to finish, then click again.", "warning");
+      setTimeout(() => busy && toast("Downloading…"), 4300); // bring the progress text back once the warning has faded
+      return;
     }
+    busy = true;
+    if (btn) btn.style.opacity = "0.4";
     toast("Downloading…");
     try {
-      const target = getTarget(); // read at click time: the links' tokens can change
+      const target = getTarget(); // read at click time: the tile can be re-rendered
       diag("download clicked", { kind: target.kind, noteId: target.noteId, page: location.href });
       const files = await filesFor(target);
       diag("files to save", files);
@@ -195,10 +303,8 @@
       toast(err.message || "The download failed. Please try again.", "error");
       flash(btn, "#d93900");
     } finally {
-      if (btn) {
-        delete btn.dataset.busy;
-        btn.style.opacity = "";
-      }
+      busy = false;
+      if (btn) btn.style.opacity = "";
     }
   }
 
@@ -291,19 +397,19 @@
     return btn;
   }
 
-  // Link of a tile (or the address of the opened post) → { noteId, token }, read when the button is clicked.
+  // Link of a tile (or the address of the opened post) → { noteId, cover }, read when the button is clicked.
   function tileTarget(section) {
     const href = section.querySelector("a.cover")?.getAttribute("href");
     const url = href && new URL(href, location.origin);
     const noteId = url?.pathname.match(/\/user\/profile\/[0-9a-f]+\/([0-9a-f]+)/)?.[1];
     if (!noteId) throw callError("Note lookup", "no link to the post on this tile.", "no a.cover[href] with /user/profile/<uid>/<id>");
-    return { kind: "tile", noteId, token: url.searchParams.get("xsec_token") };
+    return { kind: "tile", noteId, cover: section.querySelector("a.cover") };
   }
 
   function openNoteTarget() {
     const noteId = location.pathname.match(/^\/discovery\/item\/([0-9a-f]+)/)?.[1];
     if (!noteId) throw callError("Note lookup", "this is not an opened post.", location.pathname);
-    return { kind: "note", noteId, token: new URLSearchParams(location.search).get("xsec_token") };
+    return { kind: "note", noteId };
   }
 
   // Only a user's profile (and the post modal opened over it) gets buttons: not the feed, search or /explore/<id>.

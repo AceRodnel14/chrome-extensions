@@ -159,6 +159,8 @@ few clicks: opening many posts in a short time makes RedNote ask for a security 
 | N7 | Prefer description YYMMDD date on | Download a post | Same file name as with it off |
 | N8 | Logged out | Look at a profile | RedNote's login overlay; nothing wrong is saved |
 | N9 | Click a tile button, then click another one at once | Click twice | The second click shows "A download is still running: …"; only the first post is saved |
+| N10 | Open a multi-photo post, browse the carousel and click a slide's button | Click on slide 2 (e.g. index 1) | Saves one original file with the same name and `_<n>` number as the batch's file for that slide; does not swipe/zoom the carousel; single-photo and video posts have no slide buttons |
+| N11 | Open a live photo post (with >1 item), click the live photo slide's button | Click | Saves both that slide's photo and its `.mp4` clip with their batch `_<n>` numbers |
 
 ## Naver Blog: buttons and downloads
 

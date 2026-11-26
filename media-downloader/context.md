@@ -621,6 +621,7 @@ a "Log in to view this user's notes" overlay covers the grid). Researched 2026-1
 |---|---|---|
 | `tile` | Each `section.note-item` in the profile grid | Note ID from `a.cover[href]` = `/user/profile/<uid>/<noteId>?xsec_token=…`; the click opens the note through that link |
 | `note` | The opened note (URL `/discovery/item/<noteId>?xsec_token=…`) | From `location` |
+| `slide` | Each slide (`.swiper-slide`) of a multi-photo opened note's carousel in `#noteContainer` (when >1 image) | Note ID from `location`, slide index from `data-swiper-slide-index` (loop duplicates get a button with the same index) |
 | `profile` | The profile header's avatar | — |
 
 A note opened on its own (`/explore/<id>` outside a profile) gets no button: the page has no rednote ID to name it by.
@@ -681,6 +682,7 @@ always the original.
 
 `username` = rednote ID; `createdDate` = the note's `time` (ms) in local time with its offset; `takenAt` = the same in seconds; `website` =
 `rednote`; folder `rednote.com`. Profile pictures use `profile`. The description-date option does not apply.
+For per-slide downloads (0.4.0), the `_<n>` suffix is the 0-based index in the flattened steps list (`stepsOf` / `slideSteps` in `sites/rednote.js`, shared with `filesOf` so a live-photo clip shifts later slides' numbers), matching the batch filename. A live-photo slide saves both its photo and its clip. Missing, out-of-range, or mismatched slide counts refuse with "Photo lookup failed: …" rather than guessing.
 
 ### When RedNote changes something
 

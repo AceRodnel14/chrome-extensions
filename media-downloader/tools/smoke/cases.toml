@@ -44,6 +44,7 @@ site = "x"
 url = "https://x.com/NASA"
 kind = "post"
 index = 0
+timeout_s = 180
 diagnose = true
 
 [[case]]

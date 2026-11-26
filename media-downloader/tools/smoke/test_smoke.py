@@ -329,3 +329,70 @@ def test_pick_button_frame_single_frame_sites_use_the_main_frame() -> None:
 def test_pick_button_frame_skips_a_broken_frame() -> None:
     good = FakeFrame(1)
     assert smoke.pick_button_frame([FakeFrame(fail=True), good], "x", 0) is good
+
+
+class FakeButton:
+    def __init__(self, fail_hover: bool = False, fail_click: bool = False) -> None:
+        self.fail_hover = fail_hover
+        self.fail_click = fail_click
+        self.calls: list[str] = []
+
+    def scroll_into_view_if_needed(self, timeout: int = 0) -> None:
+        self.calls.append("scroll")
+
+    def locator(self, selector: str) -> FakeButton:
+        self.calls.append(f"locator:{selector}")
+        return self
+
+    def hover(self, timeout: int = 0) -> None:
+        self.calls.append("hover")
+        if self.fail_hover:
+            raise RuntimeError("detached")
+
+    def click(self, timeout: int = 0) -> None:
+        self.calls.append("click")
+        if self.fail_click:
+            raise RuntimeError("timeout")
+
+    def evaluate(self, script: str) -> None:
+        self.calls.append(f"eval:{script}")
+
+
+def test_x_cases_config() -> None:
+    cases = {c.id: c for c in smoke.load_cases(smoke.CASES_FILE)}
+    assert cases["x-nasa-post"].timeout_s == 180.0
+    assert (cases["x-nasa-tile"].site, cases["x-nasa-tile"].kind) == ("x", "tile")
+
+
+def test_click_button_x_skips_pointer_click() -> None:
+    for kind in ("tile", "post"):
+        btn = FakeButton()
+        case = smoke.Case(id=f"x-nasa-{kind}", site="x", kind=kind)
+        smoke.click_button(btn, case, pw_error=RuntimeError)
+        assert btn.calls == ["scroll", "eval:el => el.click()"]
+
+
+def test_click_button_pointer_and_fallback() -> None:
+    ig = smoke.Case(id="instagram-nasa-tile", site="instagram", kind="tile")
+    ok_btn = FakeButton()
+    smoke.click_button(ok_btn, ig, pw_error=RuntimeError)
+    assert ok_btn.calls == ["scroll", "locator:xpath=..", "hover", "click"]
+
+    blocked = FakeButton(fail_click=True)
+    smoke.click_button(blocked, ig, pw_error=RuntimeError)
+    assert blocked.calls == [
+        "scroll",
+        "locator:xpath=..",
+        "hover",
+        "click",
+        "eval:el => el.click()",
+    ]
+
+    detached = FakeButton(fail_hover=True)
+    smoke.click_button(detached, ig, pw_error=RuntimeError)
+    assert detached.calls == [
+        "scroll",
+        "locator:xpath=..",
+        "hover",
+        "eval:el => el.click()",
+    ]

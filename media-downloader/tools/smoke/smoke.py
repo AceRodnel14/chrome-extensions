@@ -581,6 +581,30 @@ def run_diagnose(page: Any, case: Case, results: Results) -> bool:
     return ok
 
 
+def click_button(
+    btn: Any, case: Case, pw_error: type[BaseException] | None = None
+) -> None:
+    """Click the case's button, using a DOM click on X or when a pointer click fails."""
+    if pw_error is None:
+        from playwright.sync_api import Error as pw_error
+
+    btn.scroll_into_view_if_needed(timeout=10000)
+    if case.site == "x":
+        # X re-renders tiles and action-bar buttons between pointerdown and mousedown,
+        # which can detach the button or let a pointer click miss the handler.
+        btn.evaluate("el => el.click()")
+        return
+    try:  # overlays can swallow the click until the tile is hovered
+        btn.locator("xpath=..").hover(timeout=5000)
+        btn.click(timeout=5000)
+    except pw_error:
+        log.warning(
+            "[%s] pointer click failed or was blocked; dispatching the click in the page",
+            case.id,
+        )
+        btn.evaluate("el => el.click()")
+
+
 def run_case(
     case: Case, interactive_all: bool, context: Any, results: Results, shot_dir: Path
 ) -> dict[str, Any]:
@@ -639,16 +663,7 @@ def run_case(
             "() => document.querySelectorAll('div').forEach(d => {"
             " if (d.style.zIndex === '2147483000') d.textContent = '' })"
         )
-        btn.scroll_into_view_if_needed(timeout=10000)
-        try:  # overlays can swallow the click until the tile is hovered
-            btn.locator("xpath=..").hover(timeout=5000)
-            btn.click(timeout=5000)
-        except PWTimeout:
-            log.warning(
-                "[%s] click blocked by an overlay; dispatching the click in the page",
-                case.id,
-            )
-            btn.evaluate("el => el.click()")
+        click_button(btn, case)
         log.info("[%s] clicked %s", case.id, sel)
         deadline = time.monotonic() + case.timeout_s
         while time.monotonic() < deadline:

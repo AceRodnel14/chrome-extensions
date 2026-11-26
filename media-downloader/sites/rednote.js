@@ -1,6 +1,7 @@
 // mediadownloader: RedNote (rednote.com) support.
-// Adds a download button to every post tile on a user's profile, to the opened post (/discovery/item/<id>) and to the
-// profile picture. There is no feed, bulk or "download all" mode: one click saves one post.
+// Adds a download button to every post tile on a user's profile, to the opened post (/discovery/item/<id>), to each
+// photo of the opened post's carousel (to save one photo again, same file name as in the whole post) and to the
+// profile picture. There is no feed, bulk or "download all" mode: one click saves one post (or one of its photos).
 // A tile click opens the post like a normal click (a.cover), then waits until RedNote's own page has the post's data in
 // window.__INITIAL_STATE__ (read by rednote-page.js, page world). Nothing is fetched, prefetched, retried or signed, and
 // RedNote's API is never called. The description-date option does not apply here (MDSettings.postTime is never used).
@@ -117,7 +118,44 @@
     });
   }
 
-  const helpers = { mapProbe, safeMediaUrl, pathOfUrlDefault, originalUrl, fallbackUrl, streamUrl, sniffExt, parseReply };
+  // Every step of a photo note, in file order: each photo ({ img, slide }), a live photo followed by its clip
+  // ({ clip, slide }). `slide` is the imageList index; the step's position is the `_<n>` in the batch's file names.
+  function stepsOf(imageList) {
+    const steps = [];
+    imageList.forEach((img, slide) => {
+      steps.push({ img, slide });
+      const live = img?.livePhoto === true ? streamUrl(img.stream) : null;
+      if (live) steps.push({ clip: live, slide });
+    });
+    return steps;
+  }
+
+  // The steps of one slide with their batch index: [{ step, index }] (a live photo gives two). Throws for a slide that
+  // is not in the note, so a guessed item is never saved.
+  function slideSteps(steps, slide) {
+    const picked = [];
+    steps.forEach((step, index) => step.slide === slide && picked.push({ step, index }));
+    if (!Number.isInteger(slide) || !picked.length) throw new Error(`slide ${slide} is not in this post (${new Set(steps.map((s) => s.slide)).size} items)`);
+    return picked;
+  }
+
+  // The item index of a carousel slide, from data-swiper-slide-index (never the DOM position: loop mode adds copies).
+  // null when it is missing or not a plain non-negative integer.
+  function slideIndexOf(value) {
+    return typeof value === "string" && /^\d{1,3}$/.test(value) ? Number(value) : null;
+  }
+
+  // Why a slide button must not save anything (a sentence), or null when slide `slide` of a carousel showing `count`
+  // distinct items is safe to map to imageList[slide] of a note with `items` photos.
+  function slideProblem(slide, count, items) {
+    if (slide === null) return "the photo on screen has no item number.";
+    if (items < 2) return "this post has only one item; use the post's own download button.";
+    if (count !== items) return `the carousel shows ${count} items but the post has ${items}; reopen the post and try again.`;
+    if (slide >= items) return `item ${slide + 1} is not in this post (${items} items).`;
+    return null;
+  }
+
+  const helpers = { mapProbe, safeMediaUrl, pathOfUrlDefault, originalUrl, fallbackUrl, streamUrl, sniffExt, parseReply, stepsOf, slideSteps, slideIndexOf, slideProblem };
   // Unit tests load this file with a `module` object; a content script has none.
   if (typeof module !== "undefined" && module.exports) {
     module.exports = helpers;
@@ -216,20 +254,26 @@
 
   // ---------------------------------------------------------------- media → files
 
-  // Every file of a note, in order: [{ url, ext }]. Photos are the original upload (ci.xiaohongshu.com/<path>); their
-  // type is sniffed from the first bytes, read by the background worker (one message for the whole note).
-  async function filesOf(note) {
+  // Every file of a note, in order: [{ url, ext, index }]. Photos are the original upload (ci.xiaohongshu.com/<path>);
+  // their type is sniffed from the first bytes, read by the background worker (one message per click). With `slide`
+  // (a slide button) only that item's file(s), with the same `index` (filename `_<n>`) as in the whole-note download.
+  async function filesOf(note, slide = null) {
     if (note.type === "video") {
+      if (slide !== null) throw callError("Photo lookup", "this post is a video, not a set of photos.", `${note.noteId}: slide ${slide}`);
       const clip = streamUrl(note.stream);
       if (!clip) throw callError("Video lookup", "RedNote returned no video file for this post.", `${note.noteId}: no video stream masterUrl`);
-      return [{ url: clip, ext: "mp4" }]; // imageList[0] is only the cover
+      return [{ url: clip, ext: "mp4", index: null }]; // imageList[0] is only the cover
     }
-    const steps = []; // photos, each live photo followed by its clip
-    for (const img of note.imageList) {
-      steps.push({ img });
-      const live = img.livePhoto === true ? streamUrl(img.stream) : null;
-      if (live) steps.push({ clip: live });
+    const all = stepsOf(note.imageList); // photos, each live photo followed by its clip
+    let picked = all.map((step, index) => ({ step, index }));
+    if (slide !== null) {
+      try {
+        picked = slideSteps(all, slide);
+      } catch (err) {
+        throw callError("Photo lookup", "this photo is not in the post any more; reopen the post and try again.", `${note.noteId}: ${err.message}`);
+      }
     }
+    const steps = picked.map((p) => p.step);
     const originals = steps.map((s) => (s.img ? originalUrl(s.img) : null));
     const probe = originals.filter(Boolean);
     diag(`File type probe: ranged GET of ${probe.length} originals (through the background worker)`);
@@ -242,7 +286,8 @@
       }
     }
     if (!reply?.ok) diag("File type probe: no answer, assuming the originals are jpg", reply);
-    return mapProbe(steps, originals, reply, diag, (detail) => callError("Photo lookup", "RedNote has no file for one of the photos.", detail));
+    const files = mapProbe(steps, originals, reply, diag, (detail) => callError("Photo lookup", "RedNote has no file for one of the photos.", detail));
+    return files.map((f, i) => ({ ...f, index: all.length > 1 ? picked[i].index : null }));
   }
 
   // What to download for a clicked button → [{ url, filename, takenAt }].
@@ -264,12 +309,18 @@
       target.cover.click(); // exactly one click per button press
     }
     const note = await waitForNote(target.noteId, uid);
-    const files = await filesOf(note);
+    let slide = null;
+    if (target.kind === "slide") {
+      const problem = slideProblem(target.slide, target.count, note.type === "video" ? 1 : note.imageList.length);
+      if (problem) throw callError("Photo lookup", problem, `${target.noteId}: slide ${target.slide}, ${target.count} in the carousel, ${note.imageList.length} in imageList (${note.type})`);
+      slide = target.slide;
+    }
+    const files = await filesOf(note, slide);
     const takenAt = Math.floor(note.time / 1000) || null;
     const vars = { username, createdDate: MDSettings.formatDate(takenAt ? takenAt * 1000 : null), website };
-    return files.map((f, i) => ({
+    return files.map((f) => ({
       url: f.url,
-      filename: MDSettings.buildFilename(settings.filenamePattern, vars, files.length > 1 ? i : null, f.ext),
+      filename: MDSettings.buildFilename(settings.filenamePattern, vars, f.index, f.ext),
       takenAt, // post time in Unix seconds, for the exiftool helper
     }));
   }
@@ -290,7 +341,7 @@
     toast("Downloading…");
     try {
       const target = getTarget(); // read at click time: the tile can be re-rendered
-      diag("download clicked", { kind: target.kind, noteId: target.noteId, page: location.href });
+      diag("download clicked", { kind: target.kind, noteId: target.noteId, slide: target.slide, page: location.href });
       const files = await filesFor(target);
       diag("files to save", files);
       const { results, exiftool } = await chrome.runtime.sendMessage({ type: "download", site: SITE_ID, files });
@@ -358,12 +409,17 @@
   const ICON =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 2 20 20" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7.1 16.9h9.8v-1.65H7.1Zm4.9-3.15 3.8-3.8-1.15-1.15-1.85 1.875V5.95h-1.65v4.675L9.35 8.8 8.2 9.95Zm0 8.05q-2.025 0-3.812-.775-1.788-.775-3.113-2.1-1.325-1.325-2.1-3.113Q2.2 14.025 2.2 12t.775-3.825q.775-1.8 2.1-3.125Q6.4 3.725 8.188 2.962 9.975 2.2 12 2.2t3.825.762q1.8.763 3.125 2.088 1.325 1.325 2.088 3.112Q21.8 9.95 21.8 12t-.762 3.825q-.763 1.775-2.088 3.1-1.325 1.325-3.112 2.1Q14.05 21.8 12 21.8Zm0-1.65q3.425 0 5.788-2.363Q20.15 15.425 20.15 12t-2.362-5.788Q15.425 3.85 12 3.85q-3.425 0-5.787 2.362Q3.85 8.575 3.85 12q0 3.425 2.363 5.787Q8.575 20.15 12 20.15ZM12 12Z"/></svg>';
 
-  function makeButton(kind, getTarget, style) {
+  // Buttons this script made. Swiper's loop mode clones slides (button included, listeners not): a copy is dead and
+  // gets replaced (see injectSlides).
+  const ours = new WeakSet();
+
+  function makeButton(kind, getTarget, style, title) {
     const btn = document.createElement("button");
+    ours.add(btn);
     btn.type = "button";
     btn.className = BTN;
     btn.dataset.mdKind = kind;
-    btn.title = kind === "profile" ? "Download profile picture" : "Download";
+    btn.title = title || (kind === "profile" ? "Download profile picture" : "Download");
     btn.setAttribute("aria-label", btn.title);
     btn.innerHTML = ICON;
     Object.assign(btn.style, {
@@ -412,6 +468,16 @@
     return { kind: "note", noteId };
   }
 
+  // The opened note's carousel slides, loop-mode copies included.
+  const SLIDES = "#noteContainer .media-container .swiper.note-slider > .swiper-wrapper > .swiper-slide";
+  const slideCount = () => new Set([...document.querySelectorAll(SLIDES)].map((s) => slideIndexOf(s.dataset.swiperSlideIndex)).filter((i) => i !== null)).size;
+
+  // A slide button → { noteId, slide (item index), count (distinct items in the carousel) }, read when clicked.
+  function slideTarget(slideEl) {
+    const { noteId } = openNoteTarget();
+    return { kind: "slide", noteId, slide: slideIndexOf(slideEl.dataset.swiperSlideIndex), count: slideCount() };
+  }
+
   // Only a user's profile (and the post modal opened over it) gets buttons: not the feed, search or /explore/<id>.
   const onProfile = () => /^\/(user\/profile|discovery\/item)\//.test(location.pathname) && Boolean(document.querySelector(".user-redId"));
 
@@ -430,6 +496,23 @@
     bar.append(makeButton("note", openNoteTarget, { marginLeft: "12px" }));
   }
 
+  // One button per carousel slide of the opened note (notes with more than one item only), so a single photo can be
+  // saved again. Loop-mode copies get one too, with the original's item index, so whichever copy is on screen works.
+  // Top right, below RedNote's "1/7" counter (it sits above the carousel and would cover the button).
+  function injectSlides() {
+    if (!/^\/discovery\/item\//.test(location.pathname)) return;
+    const slides = document.querySelectorAll(SLIDES);
+    const multi = slideCount() > 1;
+    for (const slide of slides) {
+      const existing = [...slide.querySelectorAll(`:scope > .${BTN}`)];
+      for (const b of existing) if (!ours.has(b) || !multi) b.remove(); // dead copies, or the note has one item
+      if (!multi || existing.some((b) => ours.has(b))) continue;
+      if (getComputedStyle(slide).position === "static") slide.style.position = "relative";
+      const title = slide.querySelector("video") ? "Download this item" : "Download this photo";
+      slide.append(makeButton("slide", () => slideTarget(slide), { position: "absolute", top: "52px", right: "16px", zIndex: "5" }, title));
+    }
+  }
+
   function injectProfile() {
     if (!/^\/user\/profile\//.test(location.pathname)) return;
     const wrapper = document.querySelector(".user-info > .avatar > .avatar-wrapper");
@@ -442,6 +525,7 @@
     if (!enabled() || !onProfile()) return removeAll();
     injectTiles();
     injectNote();
+    injectSlides();
     injectProfile();
   }
 

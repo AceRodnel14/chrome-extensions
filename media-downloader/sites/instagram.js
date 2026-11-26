@@ -10,18 +10,19 @@
   // is the part that changes most often. In Diagnose mode a failing query looks up the current id in Instagram's
   // scripts and remembers it (chrome.storage.local "learnedDocIds"); see context.md → "When Instagram changes something".
   const DOC = {
-    reelsMedia: { name: "PolarisStoriesV3HighlightsPageQuery", id: "29299425373007309", label: "Stories/highlights query" },
-    profile: { name: "PolarisProfilePageContentQuery", id: "40158838120366999", label: "Profile query" },
+    reelsMedia: { name: "PolarisStoriesV3HighlightsPageQuery", id: "29095961123359686", label: "Stories/highlights query" },
+    profile: { name: "PolarisProfilePageContentQuery", id: "29609640381972919", label: "Profile query" },
     search: { name: "PolarisSearchBoxNonProfiledRefetchableQuery", id: "27634848489527274", label: "User search" },
   };
   const REELS_FLAGS = { __relay_internal__pv__PolarisCommunityNoteStoriesLabelEnabledrelayprovider: true };
-  // PolarisProfilePageContentQuery fails with "execution error" unless every flag the page sends is present.
+  // PolarisProfilePageContentQuery fails with "execution error" / "missing_required_variable_value" unless every flag the page sends is present.
   const PROFILE_FLAGS = {
     __relay_internal__pv__PolarisCannesGuardianExperienceEnabledrelayprovider: true,
     __relay_internal__pv__PolarisCASB976ProfileEnabledrelayprovider: false,
     __relay_internal__pv__PolarisProfileInformTreatmentBannerEnabledrelayprovider: false,
     __relay_internal__pv__PolarisWebSchoolsEnabledrelayprovider: false,
     __relay_internal__pv__PolarisProfileRingsGradientEnabledrelayprovider: false,
+    __relay_internal__pv__PolarisDSA16EntrypointEnabledrelayprovider: false,
     __relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider: true,
     __relay_internal__pv__PolarisShortDramaEnabledrelayprovider: true,
   };

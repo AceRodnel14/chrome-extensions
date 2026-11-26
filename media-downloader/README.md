@@ -16,8 +16,8 @@ Supported websites:
   `v.redd.it`), including crossposts of them, and RedGifs clips linked from posts (saved as the `.mp4` RedGifs
   hosts; it keeps no GIF files), named after the subreddit. Posts that link to other sites are left alone.
 - **RedNote** (`rednote.com`, logged in), on a user's profile page: photos, videos and live photos (photo + clip)
-  of a post, from its tile in the profile grid or the opened post, at their original size without watermark, plus the
-  profile picture. Files are named after the profile's **rednote ID**.
+  of a post, from its tile in the profile grid, the opened post, or each slide of a multi-photo post's carousel, at
+  their original size without watermark, plus the profile picture. Files are named after the profile's **rednote ID**.
 - **Naver Blog** (`blog.naver.com` and `m.blog.naver.com`), on a post's page: every picture (JPG and PNG, up to
   3840 px wide) of posts written in Naver's current editor, one button per picture, one picture per click. Files are
   named after the **blog id** from the address and the post's publish time (in your computer's time zone, with its
@@ -210,6 +210,10 @@ to load the repository, or you loaded the repository's old `Media Downloader` fo
   moment longer to start.
 - 0.3.3: RedNote post downloads work again. A tile's button now opens the post (like a normal click) and saves
   its original photos and videos once it has loaded; the post stays open. Reload open RedNote tabs after updating.
+- 0.3.4: Instagram HD profile picture downloads work again (updated Instagram's profile query ID and flags).
+- 0.4.0: RedNote multi-photo posts now have a download button on each slide of the opened post's carousel, so you can
+  re-download individual photos (and a live photo's clip) that failed in a batch, with the same filename and `_<n>`
+  number. Reload open RedNote tabs after updating.
 - Optional: run the smoke test's health checks (`tools/diagnose*.js`), or the automated run `tools/smoke/smoke.py`, to confirm everything works.
 - The exiftool helper needs nothing: the browser starts it fresh for every download, so changes to it apply at once
   (if the browser loads a copy of the folder, copy `native/` along with the rest).
@@ -290,4 +294,4 @@ checklist to confirm everything still works.
 
 ---
 
-_Developed with assistance from AI (Claude Opus 5.5 in Claude Code)._
+_Developed with assistance from AI (Claude Opus 5.5 in Claude Code, Gemini 4 Hydrogen in Antigravity)._

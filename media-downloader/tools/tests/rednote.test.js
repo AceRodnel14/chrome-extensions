@@ -13,7 +13,7 @@ function load(file, exportsSeed = {}) {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../../sites", file), "utf8"), ctx);
   return mod.exports;
 }
-const { mapProbe, safeMediaUrl, pathOfUrlDefault, originalUrl, fallbackUrl, streamUrl, sniffExt, parseReply } = load("rednote.js");
+const { mapProbe, safeMediaUrl, pathOfUrlDefault, originalUrl, fallbackUrl, streamUrl, sniffExt, parseReply, stepsOf, slideSteps, slideIndexOf, slideProblem } = load("rednote.js");
 const page = load("rednote-page.js", { forTest: true });
 
 const ID = "1040g3mo327tpt01gkm005q3uupdn9erhh7okpa8";
@@ -182,4 +182,80 @@ test("original path: all four real shapes are accepted, traversal and dots are n
   for (const bad of [`../${id}`, `oss-sg/../${id}`, `a/b/c/${id}`, `oss-sg/Notes/${id}`, `/${id}`, `oss-sg/notes/${id}.jpg`, `OSS/${id}`, `oss-sg//${id}`, "short", `${id}/`, `oss-sg/notes/${id}?x=1`]) {
     assert.strictEqual(originalUrl({ fileId: bad, urlDefault: "" }), null, bad);
   }
+});
+
+test("stepsOf and slideSteps: batch order and live-photo index shifting", () => {
+  const clip0 = "https://sns-video-bd.xhscdn.com/c0.mp4";
+  const clip1 = "https://sns-video-bd.xhscdn.com/c1.mp4";
+  const p0 = { fileId: "f0" };
+  const live0 = { fileId: "f0", livePhoto: true, stream: { H1: [{ masterUrl: clip0 }] } };
+  const live1 = { fileId: "f1", livePhoto: true, stream: { H1: [{ masterUrl: clip1 }] } };
+  const p2 = { fileId: "f2" };
+
+  // Live photo before slide 1 and slide 2 shifts their batch indexes.
+  const steps = stepsOf([live0, live1, p2]);
+  assert.strictEqual(steps.length, 5);
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(steps)),
+    [
+      { img: live0, slide: 0 },
+      { clip: clip0, slide: 0 },
+      { img: live1, slide: 1 },
+      { clip: clip1, slide: 1 },
+      { img: p2, slide: 2 },
+    ],
+  );
+  // Slide 0: photo + clip at batch indexes 0 and 1.
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(slideSteps(steps, 0))),
+    [{ step: { img: live0, slide: 0 }, index: 0 }, { step: { clip: clip0, slide: 0 }, index: 1 }],
+  );
+  // Slide 1: shifted by live0's clip -> batch indexes 2 and 3.
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(slideSteps(steps, 1))),
+    [{ step: { img: live1, slide: 1 }, index: 2 }, { step: { clip: clip1, slide: 1 }, index: 3 }],
+  );
+  // Slide 2: shifted by both live0 and live1 -> batch index 4.
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(slideSteps(steps, 2))),
+    [{ step: { img: p2, slide: 2 }, index: 4 }],
+  );
+
+  // Live photo after slide 0 does not shift slide 0.
+  const after = stepsOf([p0, live1, p2]);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(slideSteps(after, 0))), [{ step: { img: p0, slide: 0 }, index: 0 }]);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(slideSteps(after, 2))), [{ step: { img: p2, slide: 2 }, index: 3 }]);
+});
+
+test("stepsOf: livePhoto without a valid stream adds no clip step", () => {
+  const noStream = { fileId: "f0", livePhoto: true, stream: {} };
+  const badStream = { fileId: "f1", livePhoto: true, stream: { H1: [{ masterUrl: "http://evil.com/c.mp4" }] } };
+  const notLive = { fileId: "f2", livePhoto: false, stream: { H1: [{ masterUrl: "https://sns-video-bd.xhscdn.com/c.mp4" }] } };
+  const steps = stepsOf([noStream, badStream, notLive]);
+  assert.strictEqual(steps.length, 3);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(steps.map((s) => s.slide))), [0, 1, 2]);
+  assert.strictEqual(slideSteps(steps, 2)[0].index, 2);
+});
+
+test("slideSteps: out-of-range or invalid slide throws", () => {
+  const steps = stepsOf([{ fileId: "f0" }, { fileId: "f1" }]);
+  for (const bad of [-1, 2, 99, null, undefined, NaN, "0"]) {
+    assert.throws(() => slideSteps(steps, bad), /not in this post/);
+  }
+});
+
+test("slideIndexOf and slideProblem: validation", () => {
+  assert.strictEqual(slideIndexOf("0"), 0);
+  assert.strictEqual(slideIndexOf("12"), 12);
+  assert.strictEqual(slideIndexOf("999"), 999);
+  for (const bad of ["", null, undefined, "-1", "1.5", "0a", "1000"]) {
+    assert.strictEqual(slideIndexOf(bad), null, String(bad));
+  }
+
+  assert.strictEqual(slideProblem(0, 3, 3), null);
+  assert.strictEqual(slideProblem(2, 3, 3), null);
+  assert.match(slideProblem(null, 3, 3), /no item number/);
+  assert.match(slideProblem(0, 1, 1), /only one item/);
+  assert.match(slideProblem(0, 2, 3), /shows 2 items but the post has 3/);
+  assert.match(slideProblem(3, 3, 3), /not in this post/);
 });

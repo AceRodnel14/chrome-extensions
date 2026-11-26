@@ -14,11 +14,11 @@
 // does not mark anything as seen. The function returns the rows, so a script can read them (CDP Runtime.evaluate
 // with awaitPromise). The constants below are copies from sites/instagram.js; keep them in sync.
 (async () => {
-  // keep in sync with sites/instagram.js:7 (IG_APP_ID), :12-16 (DOC ids), :17 (REELS_FLAGS), :19-27 (PROFILE_FLAGS)
+  // keep in sync with sites/instagram.js:7 (IG_APP_ID), :12-16 (DOC ids), :17 (REELS_FLAGS), :19-28 (PROFILE_FLAGS)
   const IG_APP_ID = "936619743392459";
   const BUILT_IN = {
-    PolarisStoriesV3HighlightsPageQuery: "29299425373007309",
-    PolarisProfilePageContentQuery: "40158838120366999",
+    PolarisStoriesV3HighlightsPageQuery: "29095961123359686",
+    PolarisProfilePageContentQuery: "29609640381972919",
     PolarisSearchBoxNonProfiledRefetchableQuery: "27634848489527274",
   };
   const PROFILE_FLAGS = {
@@ -27,6 +27,7 @@
     __relay_internal__pv__PolarisProfileInformTreatmentBannerEnabledrelayprovider: false,
     __relay_internal__pv__PolarisWebSchoolsEnabledrelayprovider: false,
     __relay_internal__pv__PolarisProfileRingsGradientEnabledrelayprovider: false,
+    __relay_internal__pv__PolarisDSA16EntrypointEnabledrelayprovider: false,
     __relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider: true,
     __relay_internal__pv__PolarisShortDramaEnabledrelayprovider: true,
   };
@@ -165,7 +166,7 @@
       const res = await gql("PolarisProfilePageContentQuery", { enable_integrity_filters: true, id: userId, ...PROFILE_FLAGS });
       const hd = res.json?.data?.user?.hd_profile_pic_url_info?.url;
       add("Profile query (HD profile picture)", problem(res) ? "FAIL" : hd ? "PASS" : "FAIL",
-        problem(res) ? `${problem(res)} (an "execution error" usually means the relay provider flags changed)` :
+        problem(res) ? `${problem(res)} (an "execution error" or "missing_required_variable_value" usually means the relay provider flags changed)` :
         hd ? "hd_profile_pic_url_info found" : `no data.user.hd_profile_pic_url_info: user keys ${short(Object.keys(res.json?.data?.user || {}))}`);
     });
   }
